@@ -1,0 +1,14 @@
+@model NestU.WebApp.Models.Rentals.CreateAppointmentDto
+@{ ViewData["Title"] = "Đặt lịch xem phòng"; }
+<div class="card p-4" style="max-width: 560px">
+    <h1 class="h4 mb-1">Đặt lịch xem phòng</h1>
+    <p class="text-secondary">@Model.RoomLabel</p>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="RoomId" /><input type="hidden" asp-for="RoomLabel" />
+        <div class="mb-3"><label asp-for="ScheduledAt" class="form-label"></label><input asp-for="ScheduledAt" type="datetime-local" class="form-control" /><span asp-validation-for="ScheduledAt" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="Note" class="form-label"></label><textarea asp-for="Note" class="form-control" rows="3"></textarea><span asp-validation-for="Note" class="text-danger small"></span></div>
+        <button class="btn btn-primary">Gửi lịch xem</button>
+        <a asp-area="" asp-controller="Rooms" asp-action="Details" asp-route-id="@Model.RoomId" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

@@ -1,0 +1,23 @@
+@model List<NestU.WebApp.Models.Rentals.RentalRequestDto>
+@{ ViewData["Title"] = "Yêu cầu thuê"; }
+<h1 class="h4 mb-3">Yêu cầu thuê của tôi</h1>
+<div class="card">
+    <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Phòng</th><th>Dọn vào</th><th>Thời hạn</th><th>Số người</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td><a asp-area="" asp-controller="Rooms" asp-action="Details" asp-route-id="@r.RoomId">Phòng @r.RoomNumber</a><div class="small text-secondary">@r.HouseName · @r.Price.ToString("N0")đ</div></td>
+                <td>@r.MoveInDate.ToString("dd/MM/yyyy")</td><td>@r.DurationMonths tháng</td><td>@r.NumberOfOccupants</td>
+                <td><partial name="_StatusBadge" model="@r.Status" />@if (r.RejectReason is not null) { <div class="small text-danger">@r.RejectReason</div> }</td>
+                <td class="text-end">
+                    @if (r.Status == "Pending") { <form asp-action="Cancel" asp-route-id="@r.Id" method="post" class="d-inline">@Html.AntiForgeryToken()<button class="btn btn-outline-danger btn-sm">Hủy</button></form> }
+                    @if (r.ContractId is not null) { <a asp-controller="Contracts" asp-action="Details" asp-route-id="@r.ContractId" class="btn btn-outline-dark btn-sm">Hợp đồng</a> }
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Chưa có yêu cầu nào.</td></tr> }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,19 @@
+@model NestU.WebApp.Models.Rentals.CreateRentalRequestDto
+@{ ViewData["Title"] = "Gửi yêu cầu thuê"; }
+<div class="card p-4" style="max-width: 640px">
+    <h1 class="h4 mb-1">Gửi yêu cầu thuê</h1>
+    <p class="text-secondary mb-3">@Model.RoomLabel · @Model.Price.ToString("N0")đ/tháng · cọc @Model.DepositAmount.ToString("N0")đ · tối đa @Model.Capacity người</p>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="RoomId" /><input type="hidden" asp-for="RoomLabel" /><input type="hidden" asp-for="Capacity" /><input type="hidden" asp-for="Price" /><input type="hidden" asp-for="DepositAmount" />
+        <div class="row">
+            <div class="col-md-4 mb-3"><label asp-for="NumberOfOccupants" class="form-label"></label><input asp-for="NumberOfOccupants" type="number" min="1" max="@Model.Capacity" class="form-control" /><span asp-validation-for="NumberOfOccupants" class="text-danger small"></span></div>
+            <div class="col-md-4 mb-3"><label asp-for="MoveInDate" class="form-label"></label><input asp-for="MoveInDate" class="form-control" /><span asp-validation-for="MoveInDate" class="text-danger small"></span></div>
+            <div class="col-md-4 mb-3"><label asp-for="DurationMonths" class="form-label"></label><input asp-for="DurationMonths" type="number" min="1" max="36" class="form-control" /><span asp-validation-for="DurationMonths" class="text-danger small"></span></div>
+        </div>
+        <div class="mb-3"><label asp-for="Note" class="form-label"></label><textarea asp-for="Note" class="form-control" rows="3"></textarea></div>
+        <div class="alert alert-light border small">Tiền cọc <strong>@Model.DepositAmount.ToString("N0")đ</strong> được đóng trực tiếp cho chủ trọ khi ký hợp đồng và được quyết toán khi trả phòng.</div>
+        <button class="btn btn-primary">Gửi yêu cầu</button>
+        <a asp-area="" asp-controller="Rooms" asp-action="Details" asp-route-id="@Model.RoomId" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

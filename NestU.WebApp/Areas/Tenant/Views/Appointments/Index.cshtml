@@ -1,0 +1,21 @@
+@model List<NestU.WebApp.Models.Rentals.AppointmentDto>
+@{ ViewData["Title"] = "Lịch xem phòng"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Lịch xem phòng</h1><a asp-area="" asp-controller="Rooms" asp-action="Index" class="btn btn-primary btn-sm">Tìm phòng để đặt lịch</a></div>
+<div class="card">
+    <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Phòng</th><th>Thời gian</th><th>Trạng thái</th><th>Ghi chú</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var a in Model)
+        {
+            <tr>
+                <td><a asp-area="" asp-controller="Rooms" asp-action="Details" asp-route-id="@a.RoomId">Phòng @a.RoomNumber</a><div class="small text-secondary">@a.HouseName</div></td>
+                <td>@a.ScheduledAt.ToString("HH:mm dd/MM/yyyy")</td>
+                <td><partial name="_StatusBadge" model="@a.Status" />@if (a.RejectReason is not null) { <div class="small text-danger">@a.RejectReason</div> }</td>
+                <td class="small">@a.Note</td>
+                <td class="text-end">@if (a.Status == "Pending") { <form asp-action="Cancel" asp-route-id="@a.Id" method="post" class="d-inline">@Html.AntiForgeryToken()<button class="btn btn-outline-danger btn-sm">Hủy</button></form> }</td>
+            </tr>
+        }
+        @if (Model.Count == 0) { <tr><td colspan="5" class="text-center text-secondary py-4">Chưa có lịch xem nào.</td></tr> }
+        </tbody>
+    </table>
+</div>
