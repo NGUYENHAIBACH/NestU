@@ -1,0 +1,44 @@
+@model List<NestU.WebApp.Models.Admin.CatalogItemDto>
+@{ string type = ViewBag.Type; var types = NestU.WebApp.Areas.Admin.Controllers.CatalogController.Types; ViewData["Title"] = "Danh mục: " + types[type]; var isUni = type == "universities"; var isAm = type == "amenities"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Danh mục</h1>
+    <div class="btn-group btn-group-sm">@foreach (var t in types) { <a asp-action="Index" asp-route-type="@t.Key" class="btn btn-outline-dark @(type == t.Key ? "active" : "")">@t.Value</a> }</div></div>
+<div class="row g-3">
+    <div class="col-lg-7"><div class="card"><table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Tên</th>@if (isUni) { <th>Viết tắt</th><th>Tọa độ</th> }@if (isAm) { <th>Icon</th> }<th></th></tr></thead>
+        <tbody>
+        @foreach (var x in Model)
+        {
+            <tr><td>@x.Name</td>
+                @if (isUni) { <td>@x.ShortName</td><td class="small text-secondary">@x.Latitude, @x.Longitude</td> }
+                @if (isAm) { <td><i class="bi @x.Icon"></i> <span class="small text-secondary">@x.Icon</span></td> }
+                <td class="text-end text-nowrap">
+                    <button class="btn btn-link btn-sm" onclick="fill(@x.Id,'@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(x.Name))','@x.ShortName','@x.Latitude','@x.Longitude','@x.Icon')">Sửa</button>
+                    <form asp-action="Delete" asp-route-type="@type" asp-route-id="@x.Id" method="post" class="d-inline" onsubmit="return confirm('Xóa mục này?')">@Html.AntiForgeryToken()<button class="btn btn-link btn-sm text-danger">Xóa</button></form>
+                </td></tr>
+        }
+        @if (Model.Count == 0) { <tr><td colspan="5" class="text-center text-secondary py-4">Trống.</td></tr> }
+        </tbody></table></div></div>
+    <div class="col-lg-5"><div class="card p-3">
+        <h2 class="h6" id="fTitle">Thêm @types[type].ToLower()</h2>
+        <form asp-action="Save" asp-route-type="@type" method="post">
+            @Html.AntiForgeryToken()<input type="hidden" name="Id" id="fId" value="0" />
+            <div class="mb-2"><label class="form-label small">Tên</label><input name="Name" id="fName" class="form-control form-control-sm" required /></div>
+            @if (isUni)
+            {
+                <div class="mb-2"><label class="form-label small">Tên viết tắt</label><input name="ShortName" id="fShort" class="form-control form-control-sm" /></div>
+                <div class="row g-2 mb-2"><div class="col"><label class="form-label small">Vĩ độ</label><input name="Latitude" id="fLat" type="number" step="any" class="form-control form-control-sm" /></div><div class="col"><label class="form-label small">Kinh độ</label><input name="Longitude" id="fLng" type="number" step="any" class="form-control form-control-sm" /></div></div>
+            }
+            @if (isAm) { <div class="mb-2"><label class="form-label small">Icon (bootstrap-icons, vd. bi-wifi)</label><input name="Icon" id="fIcon" class="form-control form-control-sm" /></div> }
+            <button class="btn btn-primary btn-sm">Lưu</button> <button type="button" class="btn btn-link btn-sm" onclick="fill(0,'','','','','')">Làm mới</button>
+        </form>
+    </div></div>
+</div>
+@section Scripts {
+<script>
+    function fill(id, name, short, lat, lng, icon) {
+        const set = (i, v) => { const e = document.getElementById(i); if (e) e.value = v; };
+        set('fId', id); set('fName', name); set('fShort', short); set('fLat', lat); set('fLng', lng); set('fIcon', icon);
+        document.getElementById('fTitle').textContent = id ? 'Sửa mục' : 'Thêm mục';
+    }
+</script>
+}

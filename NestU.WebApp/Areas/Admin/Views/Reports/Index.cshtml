@@ -1,0 +1,25 @@
+@model List<NestU.WebApp.Models.Support.ReportDto>
+@{ ViewData["Title"] = "Khiếu nại"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Khiếu nại</h1>
+    <div class="btn-group btn-group-sm">@foreach (var s in new[] { ("Open", "Mới"), ("Resolved", "Đã xử lý"), ("Dismissed", "Bác bỏ"), ("", "Tất cả") }) { <a asp-action="Index" asp-route-status="@s.Item1" class="btn btn-outline-dark @(st == s.Item1 ? "active" : "")">@s.Item2</a> }</div></div>
+<div class="card">
+@foreach (var r in Model)
+{
+    <div class="p-3 border-bottom">
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+            <div><strong>@r.TargetName</strong> <span class="badge text-bg-light border">@r.TargetType</span> <partial name="_StatusBadge" model="@r.Status" /><div class="small text-secondary">Người gửi: @r.ReporterName · @r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</div><div class="mt-1">@r.Reason</div>@if (r.ResolveNote is not null) { <div class="small text-success mt-1">Kết quả: @r.ResolveNote</div> }</div>
+            @if (r.Status == "Open")
+            {
+                <form asp-action="Resolve" method="post" class="d-flex gap-1 flex-wrap align-items-start" style="max-width: 460px">
+                    @Html.AntiForgeryToken()<input type="hidden" name="Id" value="@r.Id" />
+                    <select name="Status" class="form-select form-select-sm" style="width:120px"><option value="Resolved">Xử lý</option><option value="Dismissed">Bác bỏ</option></select>
+                    <select name="Action" class="form-select form-select-sm" style="width:150px"><option value="None">Không hành động</option>@if (r.TargetType == "Room") { <option value="HideRoom">Ẩn phòng (Đang sửa)</option> }<option value="LockLandlord">Khóa chủ trọ</option></select>
+                    <input name="Note" class="form-control form-control-sm" placeholder="Ghi chú kết quả" style="width:160px" />
+                    <button class="btn btn-primary btn-sm">Lưu</button>
+                </form>
+            }
+        </div>
+    </div>
+}
+@if (Model.Count == 0) { <div class="p-4 text-center text-secondary">Không có khiếu nại.</div> }
+</div>
