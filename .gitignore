@@ -1,0 +1,18 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.rsuser
+appsettings.*.local.json
+## Uploads lúc chạy
+**/wwwroot/uploads/
+## OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+## Migration do máy sinh, vẫn commit; nhưng bỏ file DB LocalDB nếu lỡ tạo
+*.mdf
+*.ldf
