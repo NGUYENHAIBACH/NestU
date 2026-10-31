@@ -1,0 +1,41 @@
+@model List<NestU.WebApp.Models.Houses.ServiceDto>
+@{ ViewData["Title"] = "Dịch vụ"; NestU.WebApp.Models.Houses.ServiceDto form = ViewBag.Form; Dictionary<int, string> names = ViewBag.HouseNames; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Dịch vụ</h1>
+    <form method="get"><select name="houseId" asp-items="ViewBag.Houses" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">Tất cả nhà trọ</option></select></form></div>
+<div class="row g-3">
+    <div class="col-lg-7"><div class="card"><table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Dịch vụ</th><th>Nhà trọ</th><th class="text-end">Đơn giá</th><th>Tính theo</th><th></th><th></th></tr></thead>
+        <tbody>
+        @foreach (var s in Model)
+        {
+            <tr class="@(s.IsActive ? "" : "text-secondary")">
+                <td>@s.Name @(s.IsActive ? "" : "(đã tắt)")</td><td class="small">@names.GetValueOrDefault(s.BoardingHouseId)</td><td class="text-end">@s.Price.ToString("N0")đ</td><td>@(s.Unit == "PerPerson" ? "người" : "tháng")</td>
+                <td><a asp-action="Index" asp-route-houseId="@s.BoardingHouseId" asp-route-edit="@s.Id" class="btn btn-link btn-sm" onclick="fill(@s.Id,@s.BoardingHouseId,'@s.Name',@s.Price,'@s.Unit',@s.IsActive.ToString().ToLower());return false;">Sửa</a></td>
+                <td class="text-end"><form asp-action="Delete" asp-route-id="@s.Id" asp-route-houseId="@s.BoardingHouseId" method="post" onsubmit="return confirm('Xóa dịch vụ?')">@Html.AntiForgeryToken()<button class="btn btn-link btn-sm text-danger">Xóa</button></form></td>
+            </tr>
+        }
+        @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Chưa có dịch vụ.</td></tr> }
+        </tbody></table></div></div>
+    <div class="col-lg-5"><div class="card p-3">
+        <h2 class="h6" id="formTitle">Thêm dịch vụ</h2>
+        <form asp-action="Save" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="Id" id="fId" value="0" />
+            <div class="mb-2"><label class="form-label small">Nhà trọ</label><select name="BoardingHouseId" id="fHouse" asp-items="ViewBag.Houses" class="form-select form-select-sm"></select></div>
+            <div class="mb-2"><label class="form-label small">Tên dịch vụ</label><input name="Name" id="fName" class="form-control form-control-sm" required /></div>
+            <div class="row g-2 mb-2"><div class="col"><label class="form-label small">Đơn giá</label><input name="Price" id="fPrice" type="number" step="1000" min="0" class="form-control form-control-sm" required /></div>
+                <div class="col"><label class="form-label small">Tính theo</label><select name="Unit" id="fUnit" class="form-select form-select-sm"><option value="PerMonth">Tháng</option><option value="PerPerson">Người</option></select></div></div>
+            <div class="form-check mb-2"><input type="checkbox" name="IsActive" id="fActive" value="true" class="form-check-input" checked /><input type="hidden" name="IsActive" value="false" /><label class="form-check-label small" for="fActive">Đang áp dụng</label></div>
+            <button class="btn btn-primary btn-sm">Lưu</button> <button type="button" class="btn btn-link btn-sm" onclick="fill(0,@form.BoardingHouseId,'',0,'PerMonth',true)">Làm mới</button>
+        </form>
+    </div></div>
+</div>
+@section Scripts {
+<script>
+    function fill(id, house, name, price, unit, active) {
+        document.getElementById('fId').value = id; document.getElementById('fHouse').value = house; document.getElementById('fName').value = name;
+        document.getElementById('fPrice').value = price; document.getElementById('fUnit').value = unit; document.getElementById('fActive').checked = active;
+        document.getElementById('formTitle').textContent = id ? 'Sửa dịch vụ' : 'Thêm dịch vụ';
+    }
+</script>
+}

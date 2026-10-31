@@ -1,0 +1,24 @@
+@model List<NestU.WebApp.Models.Rentals.AppointmentDto>
+@{ ViewData["Title"] = "Lịch xem phòng"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Lịch xem phòng</h1>
+    <div class="btn-group btn-group-sm">@foreach (var s in new[] { ("", "Tất cả"), ("Pending", "Chờ"), ("Confirmed", "Đã xác nhận"), ("Rejected", "Từ chối") }) { <a asp-action="Index" asp-route-status="@s.Item1" class="btn btn-outline-dark @(st == s.Item1 || (st is null && s.Item1 == "") ? "active" : "")">@s.Item2</a> }</div></div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Phòng</th><th>Người xem</th><th>Thời gian</th><th>Ghi chú</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var a in Model)
+    {
+        <tr>
+            <td>P.@a.RoomNumber<div class="small text-secondary">@a.HouseName</div></td><td>@a.TenantName<div class="small text-secondary">@a.TenantPhone</div></td>
+            <td>@a.ScheduledAt.ToString("HH:mm dd/MM/yyyy")</td><td class="small">@a.Note</td><td><partial name="_StatusBadge" model="@a.Status" /></td>
+            <td class="text-end text-nowrap">
+            @if (a.Status == "Pending")
+            {
+                <form asp-action="Confirm" asp-route-id="@a.Id" method="post" class="d-inline">@Html.AntiForgeryToken()<button class="btn btn-success btn-sm">Xác nhận</button></form>
+                <button class="btn btn-outline-danger btn-sm" data-bs-toggle="collapse" data-bs-target="#rej@(a.Id)">Từ chối</button>
+                <form asp-action="Reject" asp-route-id="@a.Id" method="post" class="collapse mt-2" id="rej@(a.Id)">@Html.AntiForgeryToken()<div class="input-group input-group-sm"><input name="reason" class="form-control" placeholder="Lý do" required /><button class="btn btn-danger">Gửi</button></div></form>
+            }
+            </td>
+        </tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Không có lịch xem.</td></tr> }
+    </tbody></table></div>
