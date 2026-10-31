@@ -1,0 +1,20 @@
+@model List<NestU.WebApp.Models.Billing.InvoiceDto>
+@{ ViewData["Title"] = "Hóa đơn"; }
+<h1 class="h4 mb-3">Hóa đơn của tôi</h1>
+<div class="card">
+    <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Tháng</th><th>Phòng</th><th class="text-end">Tổng tiền</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var i in Model)
+        {
+            <tr>
+                <td>@i.Month/@i.Year</td><td>@i.RoomNumber · @i.HouseName</td><td class="text-end fw-semibold">@i.Total.ToString("N0")đ</td>
+                <td>@i.DueDate.ToString("dd/MM/yyyy")</td><td><partial name="_StatusBadge" model="@i.DisplayStatus" /></td>
+                <td class="text-end"><a asp-action="Details" asp-route-id="@i.Id" class="btn btn-outline-dark btn-sm">Chi tiết</a>
+                    @if (i.Status == "Unpaid") { <a asp-action="Pay" asp-route-id="@i.Id" class="btn btn-primary btn-sm">Thanh toán</a> }</td>
+            </tr>
+        }
+        @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Chưa có hóa đơn.</td></tr> }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,15 @@
+@model NestU.WebApp.Models.Billing.ReportPaymentDto
+@{ ViewData["Title"] = "Báo thanh toán"; NestU.WebApp.Models.Billing.InvoiceDto? inv = ViewBag.Invoice; }
+<div class="card p-4" style="max-width: 560px">
+    <h1 class="h4 mb-1">Báo đã thanh toán</h1>
+    @if (inv is not null) { <p class="text-secondary">Hóa đơn tháng @inv.Month/@inv.Year · @inv.Total.ToString("N0")đ</p> }
+    <form method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="InvoiceId" />
+        <div class="mb-3"><label asp-for="Amount" class="form-label"></label><input asp-for="Amount" type="number" step="1000" class="form-control" /><span asp-validation-for="Amount" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="ProofImage" class="form-label"></label><input asp-for="ProofImage" type="file" accept="image/*" class="form-control" /></div>
+        <div class="mb-3"><label asp-for="Note" class="form-label"></label><input asp-for="Note" class="form-control" /></div>
+        <button class="btn btn-primary">Gửi xác nhận</button>
+        <a asp-action="Details" asp-route-id="@Model.InvoiceId" class="btn btn-link">Quay lại</a>
+    </form>
+</div>
