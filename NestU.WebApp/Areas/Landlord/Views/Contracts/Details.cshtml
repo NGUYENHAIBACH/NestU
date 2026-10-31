@@ -1,0 +1,90 @@
+@model NestU.WebApp.Models.Rentals.ContractDto
+@{
+    ViewData["Title"] = $"Hợp đồng #{Model.Id}";
+    List<NestU.WebApp.Models.Assets.ContractAssetDto> assets = ViewBag.Assets;
+    List<NestU.WebApp.Models.Billing.InvoiceDto> invoices = ViewBag.Invoices;
+    string tab = ViewBag.Tab;
+    var checkIn = assets.Where(a => a.Stage == "CheckIn").ToList();
+    var checkOut = assets.Where(a => a.Stage == "CheckOut").ToList();
+}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div><h1 class="h4 mb-0">Hợp đồng #@Model.Id · Phòng @Model.RoomNumber</h1><div class="text-secondary">@Model.HouseName · @Model.TenantName (@Model.TenantPhone)</div></div>
+    <partial name="_StatusBadge" model="@Model.Status" />
+</div>
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(tab == "info" ? "active" : "")" asp-action="Details" asp-route-id="@Model.Id" asp-route-tab="info">Thông tin</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "assets" ? "active" : "")" asp-action="Details" asp-route-id="@Model.Id" asp-route-tab="assets">Bàn giao tài sản</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "invoices" ? "active" : "")" asp-action="Details" asp-route-id="@Model.Id" asp-route-tab="invoices">Hóa đơn (@invoices.Count)</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "deposit" ? "active" : "")" asp-action="Details" asp-route-id="@Model.Id" asp-route-tab="deposit">Tiền cọc &amp; kết thúc</a></li>
+</ul>
+@if (tab == "info")
+{
+    <div class="card p-4">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Thời hạn</dt><dd class="col-sm-9">@Model.StartDate.ToString("dd/MM/yyyy") → @Model.EndDate.ToString("dd/MM/yyyy") @(Model.DisplayStatus == "Expired" ? "(đã hết hạn)" : "")</dd>
+            <dt class="col-sm-3">Tiền phòng</dt><dd class="col-sm-9">@Model.MonthlyRent.ToString("N0")đ/tháng</dd>
+            <dt class="col-sm-3">Tiền cọc</dt><dd class="col-sm-9">@Model.DepositAmount.ToString("N0")đ @(Model.DepositPaidAt is null ? "(chưa ghi nhận)" : $"— đã nhận {Model.DepositPaidAt:dd/MM/yyyy}")</dd>
+            <dt class="col-sm-3">Người ở cùng</dt><dd class="col-sm-9">@(Model.Members.Count == 0 ? "Không" : string.Join("; ", Model.Members.Select(m => $"{m.FullName} ({m.CitizenId})")))</dd>
+            <dt class="col-sm-3">Dịch vụ</dt><dd class="col-sm-9">@(Model.Services.Count == 0 ? "Không" : string.Join(", ", Model.Services.Select(s => $"{s.Name} {s.Price:N0}đ")))</dd>
+        </dl>
+        @if (Model.Status == "Active")
+        {
+            <hr />
+            <form asp-action="Extend" method="post" class="d-flex align-items-end gap-2 flex-wrap">
+                @Html.AntiForgeryToken()<input type="hidden" name="Id" value="@Model.Id" />
+                <div><label class="form-label small">Gia hạn đến</label><input name="NewEndDate" type="date" class="form-control form-control-sm" value="@Model.EndDate.AddMonths(6).ToString("yyyy-MM-dd")" /></div>
+                <button class="btn btn-outline-dark btn-sm">Gia hạn</button>
+                <a asp-controller="Invoices" asp-action="Generate" asp-route-contractId="@Model.Id" class="btn btn-outline-dark btn-sm ms-auto">Lập hóa đơn tháng</a>
+            </form>
+        }
+    </div>
+}
+else if (tab == "assets")
+{
+    <div class="card p-4 mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h6 mb-0">Biên bản nhận phòng</h2>
+            @if (Model.CheckInConfirmed && checkIn.Count > 0) { <span class="badge text-bg-success">Người thuê đã xác nhận</span> } else if (checkIn.Count > 0) { <span class="badge text-bg-warning">Chờ người thuê xác nhận</span> }</div>
+        <partial name="_AssetTable" model="checkIn" />
+    </div>
+    <div class="card p-4">
+        <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h6 mb-0">Biên bản trả phòng</h2>
+            @if (Model.Status == "Active" && checkIn.Count > 0) { <a asp-action="Checkout" asp-route-id="@Model.Id" class="btn btn-outline-dark btn-sm">@(checkOut.Count > 0 ? "Sửa biên bản" : "Lập biên bản trả phòng")</a> }</div>
+        @if (checkOut.Count > 0) { <partial name="_AssetTable" model="checkOut" /><div class="text-end mt-2 fw-semibold">Tổng khấu trừ hư hỏng: @checkOut.Sum(a => a.DeductionAmount).ToString("N0")đ</div> }
+        else { <div class="small text-secondary">Chưa lập. Lập khi người thuê trả phòng, trước khi quyết toán cọc.</div> }
+    </div>
+}
+else if (tab == "invoices")
+{
+    <div class="card"><table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Tháng</th><th class="text-end">Tổng</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>@foreach (var i in invoices.OrderByDescending(x => x.Year).ThenByDescending(x => x.Month)) { <tr><td>@i.Month/@i.Year</td><td class="text-end">@i.Total.ToString("N0")đ</td><td>@i.DueDate.ToString("dd/MM/yyyy")</td><td><partial name="_StatusBadge" model="@i.DisplayStatus" /></td><td class="text-end"><a asp-controller="Invoices" asp-action="Details" asp-route-id="@i.Id" class="btn btn-outline-dark btn-sm">Xem</a></td></tr> }
+        @if (invoices.Count == 0) { <tr><td colspan="5" class="text-center text-secondary py-4">Chưa có hóa đơn. <a asp-controller="Invoices" asp-action="Generate" asp-route-contractId="@Model.Id">Lập hóa đơn</a></td></tr> }</tbody></table></div>
+}
+else
+{
+    <div class="card p-4">
+        @if (Model.DepositSettlement is not null)
+        {
+            var s = Model.DepositSettlement;
+            <h2 class="h6">Đã quyết toán ngày @s.SettledAt.ToString("dd/MM/yyyy")</h2>
+            <table class="table table-sm" style="max-width: 480px"><tbody>
+                <tr><td>Tiền cọc</td><td class="text-end">@s.DepositAmount.ToString("N0")đ</td></tr>
+                <tr><td>Khấu trừ hư hỏng</td><td class="text-end text-danger">-@s.DamageDeduction.ToString("N0")đ</td></tr>
+                <tr><td>Khấu trừ hóa đơn chưa trả</td><td class="text-end text-danger">-@s.UnpaidDeduction.ToString("N0")đ</td></tr>
+                <tr class="fw-bold"><td>Hoàn cho người thuê</td><td class="text-end text-success">@s.RefundAmount.ToString("N0")đ</td></tr>
+            </tbody></table>
+            @if (s.Note is not null) { <div class="small text-secondary">@s.Note</div> }
+        }
+        else if (Model.Status == "Active")
+        {
+            <h2 class="h6">Kết thúc hợp đồng</h2>
+            <ol class="small">
+                <li>Lập <a asp-action="Details" asp-route-id="@Model.Id" asp-route-tab="assets">biên bản trả phòng</a> (tình trạng tài sản, tiền khấu trừ). @(checkOut.Count > 0 ? "✅ Đã lập." : "")</li>
+                <li>Lập hóa đơn tháng cuối nếu còn.</li>
+                <li>Quyết toán cọc: hệ thống tự tính khấu trừ hư hỏng + hóa đơn chưa trả, phần còn lại hoàn cho người thuê. Hợp đồng → Đã kết thúc, phòng → Còn trống.</li>
+            </ol>
+            <a asp-action="Settle" asp-route-id="@Model.Id" class="btn btn-danger">Quyết toán cọc &amp; kết thúc hợp đồng</a>
+        }
+        else { <div class="text-secondary">Hợp đồng đã kết thúc @Model.TerminatedAt?.ToLocalTime().ToString("dd/MM/yyyy").</div> }
+    </div>
+}

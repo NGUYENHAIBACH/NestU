@@ -1,0 +1,27 @@
+@model NestU.WebApp.Models.Assets.CheckoutAssetsDto
+@{ ViewData["Title"] = "Biên bản trả phòng"; }
+<div class="card p-4">
+    <h1 class="h4 mb-1">Biên bản trả phòng</h1>
+    <p class="text-secondary small">Ghi tình trạng từng tài sản khi người thuê trả phòng và tiền khấu trừ nếu hư hỏng, thất lạc. Tình trạng này sẽ cập nhật ngược vào tài sản phòng sau khi quyết toán.</p>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="ContractId" />
+        <table class="table align-middle">
+            <thead class="table-light"><tr><th>Tài sản</th><th>Khi nhận</th><th style="width:90px">SL còn</th><th style="width:140px">Tình trạng</th><th style="width:160px">Khấu trừ (đ)</th><th>Ghi chú</th></tr></thead>
+            <tbody>
+            @for (var i = 0; i < Model.Items.Count; i++)
+            {
+                <tr>
+                    <td>@Model.Items[i].Name<input type="hidden" asp-for="Items[i].RoomAssetId" /><input type="hidden" asp-for="Items[i].Name" /><input type="hidden" asp-for="Items[i].CheckInQuantity" /><input type="hidden" asp-for="Items[i].CheckInCondition" /></td>
+                    <td class="small text-secondary">×@Model.Items[i].CheckInQuantity · <partial name="_StatusBadge" model="@Model.Items[i].CheckInCondition" /></td>
+                    <td><input asp-for="Items[i].Quantity" type="number" min="0" class="form-control form-control-sm" /></td>
+                    <td><select asp-for="Items[i].Condition" class="form-select form-select-sm"><option value="Good">Tốt</option><option value="Damaged">Hư nhẹ</option><option value="Broken">Hỏng</option></select></td>
+                    <td><input asp-for="Items[i].DeductionAmount" type="number" step="10000" min="0" class="form-control form-control-sm" /></td>
+                    <td><input asp-for="Items[i].Note" class="form-control form-control-sm" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <button class="btn btn-primary">Lưu biên bản</button><a asp-action="Details" asp-route-id="@Model.ContractId" asp-route-tab="assets" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

@@ -1,0 +1,22 @@
+@model NestU.WebApp.Models.Rentals.CreateDepositSettlementDto
+@{ ViewData["Title"] = "Quyết toán cọc"; NestU.WebApp.Models.Rentals.ContractDto c = ViewBag.Contract; decimal damage = ViewBag.Damage; decimal unpaid = ViewBag.Unpaid; var refund = c.DepositAmount - damage - unpaid; }
+<div class="card p-4" style="max-width: 640px">
+    <h1 class="h4 mb-1">Quyết toán cọc &amp; kết thúc hợp đồng</h1>
+    <p class="text-secondary">Hợp đồng #@c.Id · Phòng @c.RoomNumber · @c.TenantName</p>
+    <table class="table"><tbody>
+        <tr><td>Tiền cọc đã nhận</td><td class="text-end">@c.DepositAmount.ToString("N0")đ</td></tr>
+        <tr><td>Khấu trừ hư hỏng (theo biên bản trả phòng)</td><td class="text-end text-danger">-@damage.ToString("N0")đ</td></tr>
+        <tr><td>Hóa đơn chưa thanh toán <span class="small text-secondary">(trừ vào cọc nếu chọn)</span></td><td class="text-end text-danger">-@unpaid.ToString("N0")đ</td></tr>
+        <tr class="fw-bold"><td>Hoàn lại cho người thuê</td><td class="text-end @(refund < 0 ? "text-danger" : "text-success")">@refund.ToString("N0")đ</td></tr>
+    </tbody></table>
+    @if (refund < 0) { <div class="alert alert-danger small">Tổng khấu trừ vượt tiền cọc. Hãy giảm khấu trừ trong biên bản hoặc thu thêm ngoài hệ thống, nếu không sẽ không quyết toán được.</div> }
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ContractId" />
+        <div class="form-check mb-3"><input asp-for="DeductUnpaidInvoices" class="form-check-input" /><label asp-for="DeductUnpaidInvoices" class="form-check-label"></label></div>
+        <div class="mb-3"><label asp-for="Note" class="form-label"></label><textarea asp-for="Note" class="form-control" rows="2"></textarea></div>
+        <div class="alert alert-warning small">Sau khi quyết toán: hợp đồng chuyển <strong>Đã kết thúc</strong>, phòng về <strong>Còn trống</strong>, tình trạng tài sản phòng cập nhật theo biên bản trả phòng. Không hoàn tác được.</div>
+        <button class="btn btn-danger" onclick="return confirm('Xác nhận quyết toán và kết thúc hợp đồng?')">Xác nhận quyết toán</button>
+        <a asp-action="Details" asp-route-id="@c.Id" asp-route-tab="deposit" class="btn btn-link">Quay lại</a>
+    </form>
+</div>
