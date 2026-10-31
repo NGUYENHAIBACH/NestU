@@ -1,0 +1,27 @@
+@model List<NestU.WebApp.Models.Admin.LandlordApprovalDto>
+@{ ViewData["Title"] = "Duyệt chủ trọ"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Duyệt hồ sơ chủ trọ</h1>
+    <div class="btn-group btn-group-sm">@foreach (var s in new[] { ("Pending", "Chờ duyệt"), ("Approved", "Đã duyệt"), ("Rejected", "Từ chối"), ("", "Tất cả") }) { <a asp-action="Index" asp-route-status="@s.Item1" class="btn btn-outline-dark @(st == s.Item1 ? "active" : "")">@s.Item2</a> }</div></div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Chủ trọ</th><th>CCCD</th><th>Điện thoại</th><th>Đăng ký</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var p in Model)
+    {
+        <tr>
+            <td>@p.FullName<div class="small text-secondary">@p.Email</div></td><td>@p.CitizenId</td><td>@p.Phone</td><td>@p.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+            <td><partial name="_StatusBadge" model="@p.ApprovalStatus" />@if (p.ReviewNote is not null) { <div class="small text-secondary">@p.ReviewNote</div> }</td>
+            <td class="text-end text-nowrap">
+            @if (p.ApprovalStatus != "Approved")
+            {
+                <form asp-action="Decide" method="post" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="Id" value="@p.Id" /><input type="hidden" name="Approve" value="true" /><button class="btn btn-success btn-sm">Duyệt</button></form>
+                @if (p.ApprovalStatus == "Pending")
+                {
+                    <button class="btn btn-outline-danger btn-sm" data-bs-toggle="collapse" data-bs-target="#rej@(p.Id)">Từ chối</button>
+                    <form asp-action="Decide" method="post" class="collapse mt-2" id="rej@(p.Id)">@Html.AntiForgeryToken()<input type="hidden" name="Id" value="@p.Id" /><input type="hidden" name="Approve" value="false" /><div class="input-group input-group-sm"><input name="Note" class="form-control" placeholder="Lý do" required /><button class="btn btn-danger">Gửi</button></div></form>
+                }
+            }
+            </td>
+        </tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Không có hồ sơ.</td></tr> }
+    </tbody></table></div>

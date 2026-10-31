@@ -1,0 +1,26 @@
+@model List<NestU.WebApp.Models.Houses.CertificateDto>
+@{ ViewData["Title"] = "Duyệt PCCC"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Duyệt giấy chứng nhận PCCC</h1>
+    <div class="btn-group btn-group-sm">@foreach (var s in new[] { ("Pending", "Chờ duyệt"), ("Approved", "Đã duyệt"), ("Rejected", "Từ chối"), ("", "Tất cả") }) { <a asp-action="Index" asp-route-status="@s.Item1" class="btn btn-outline-dark @(st == s.Item1 ? "active" : "")">@s.Item2</a> }</div></div>
+<div class="alert alert-light border small"><i class="bi bi-info-circle me-1"></i>Duyệt giấy → nhà trọ chuyển <strong>Đang hoạt động</strong>, phòng hiện công khai và nhận yêu cầu thuê. Từ chối → chủ trọ phải nộp lại.</div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Nhà trọ</th><th>Chủ trọ</th><th>Số giấy</th><th>Ngày nộp</th><th>File</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var c in Model)
+    {
+        <tr>
+            <td>@c.HouseName</td><td>@c.LandlordName</td><td>@c.CertificateNo</td><td>@c.UploadedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+            <td><a href="@(Config["ApiSettings:BaseUrl"]!.TrimEnd('/') + c.FileUrl)" target="_blank" class="btn btn-link btn-sm p-0">Xem</a></td>
+            <td><partial name="_StatusBadge" model="@c.Status" />@if (c.ReviewNote is not null) { <div class="small text-secondary">@c.ReviewNote</div> }</td>
+            <td class="text-end text-nowrap">
+            @if (c.Status == "Pending")
+            {
+                <form asp-action="Review" method="post" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="Id" value="@c.Id" /><input type="hidden" name="Approve" value="true" /><button class="btn btn-success btn-sm">Duyệt</button></form>
+                <button class="btn btn-outline-danger btn-sm" data-bs-toggle="collapse" data-bs-target="#rej@(c.Id)">Từ chối</button>
+                <form asp-action="Review" method="post" class="collapse mt-2" id="rej@(c.Id)">@Html.AntiForgeryToken()<input type="hidden" name="Id" value="@c.Id" /><input type="hidden" name="Approve" value="false" /><div class="input-group input-group-sm"><input name="Note" class="form-control" placeholder="Lý do" required /><button class="btn btn-danger">Gửi</button></div></form>
+            }
+            </td>
+        </tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="7" class="text-center text-secondary py-4">Không có giấy nào.</td></tr> }
+    </tbody></table></div>
