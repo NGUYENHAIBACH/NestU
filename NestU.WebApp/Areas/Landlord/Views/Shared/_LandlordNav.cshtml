@@ -1,0 +1,21 @@
+@{
+    var c = ViewContext.RouteData.Values["controller"]?.ToString();
+    string Act(string x) => c == x ? "active" : "";
+    var approved = User.FindFirst("landlord_status")?.Value == "Approved";
+}
+<div class="list-group mb-3">
+    <a asp-controller="Dashboard" asp-action="Index" class="list-group-item list-group-item-action @Act("Dashboard")"><i class="bi bi-speedometer2 me-2"></i>Tổng quan</a>
+    <a asp-controller="Profile" asp-action="Index" class="list-group-item list-group-item-action @Act("Profile")"><i class="bi bi-person-badge me-2"></i>Hồ sơ chủ trọ</a>
+    @if (approved)
+    {
+        <a asp-controller="Houses" asp-action="Index" class="list-group-item list-group-item-action @Act("Houses")"><i class="bi bi-building me-2"></i>Nhà trọ &amp; sơ đồ tầng</a>
+        <a asp-controller="Rooms" asp-action="Index" class="list-group-item list-group-item-action @Act("Rooms")"><i class="bi bi-door-open me-2"></i>Phòng &amp; tài sản</a>
+        <a asp-controller="Services" asp-action="Index" class="list-group-item list-group-item-action @Act("Services")"><i class="bi bi-wifi me-2"></i>Dịch vụ</a>
+        <a asp-controller="Appointments" asp-action="Index" class="list-group-item list-group-item-action @Act("Appointments")"><i class="bi bi-calendar-check me-2"></i>Lịch xem phòng</a>
+        <a asp-controller="RentalRequests" asp-action="Index" class="list-group-item list-group-item-action @Act("RentalRequests")"><i class="bi bi-inbox me-2"></i>Yêu cầu thuê</a>
+        <a asp-controller="Contracts" asp-action="Index" class="list-group-item list-group-item-action @Act("Contracts")"><i class="bi bi-file-earmark-text me-2"></i>Hợp đồng</a>
+        <a asp-controller="Readings" asp-action="Index" class="list-group-item list-group-item-action @Act("Readings")"><i class="bi bi-speedometer me-2"></i>Chỉ số điện nước</a>
+        <a asp-controller="Invoices" asp-action="Index" class="list-group-item list-group-item-action @Act("Invoices")"><i class="bi bi-receipt me-2"></i>Hóa đơn</a>
+        <a asp-controller="Maintenance" asp-action="Index" class="list-group-item list-group-item-action @Act("Maintenance")"><i class="bi bi-tools me-2"></i>Sự cố</a>
+    }
+</div>
