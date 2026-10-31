@@ -1,0 +1,13 @@
+@model List<NestU.WebApp.Models.Rooms.RoomListDto>
+<div class="floor-grid d-flex flex-wrap gap-2">
+    @if (Model.Count == 0) { <span class="small text-secondary">Chưa có phòng</span> }
+    @foreach (var r in Model)
+    {
+        var cls = r.Status == "Available" ? "available" : r.Status == "Occupied" ? "occupied" : "maintenance";
+        var url = ViewData["RoomUrl"] is Func<int, string> fn ? fn(r.Id) : Url.Action("Details", "Rooms", new { area = "", id = r.Id });
+        <a href="@url" class="room-tile @cls text-decoration-none" title="@r.AvailabilityLabel · @r.Price.ToString("N0")đ">
+            <div>@r.RoomNumber</div>
+            <div class="small fw-normal">@((r.Price / 1_000_000m).ToString("0.#"))tr</div>
+        </a>
+    }
+</div>

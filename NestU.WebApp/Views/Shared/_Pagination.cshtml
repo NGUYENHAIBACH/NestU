@@ -1,0 +1,15 @@
+@model (int page, int pageSize, int total, string url)
+@{
+    var pages = Model.pageSize == 0 ? 0 : (int)Math.Ceiling(Model.total / (double)Model.pageSize);
+}
+@if (pages > 1)
+{
+    <nav aria-label="Phân trang">
+        <ul class="pagination justify-content-center">
+            @for (var p = Math.Max(1, Model.page - 2); p <= Math.Min(pages, Model.page + 2); p++)
+            {
+                <li class="page-item @(p == Model.page ? "active" : "")"><a class="page-link" href="@(Model.url + p)">@p</a></li>
+            }
+        </ul>
+    </nav>
+}

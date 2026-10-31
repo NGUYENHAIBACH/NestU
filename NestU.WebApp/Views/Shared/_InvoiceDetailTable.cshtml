@@ -1,0 +1,8 @@
+@model NestU.WebApp.Models.Billing.InvoiceDto
+<table class="table table-sm align-middle mb-0">
+    <thead class="table-light"><tr><th>Khoản</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr></thead>
+    <tbody>
+    @foreach (var d in Model.Details) { <tr><td>@d.ItemName</td><td class="text-end">@d.Quantity.ToString("0.##") @d.Unit</td><td class="text-end">@d.UnitPrice.ToString("N0")đ</td><td class="text-end">@d.Amount.ToString("N0")đ</td></tr> }
+    </tbody>
+    <tfoot><tr class="fw-bold"><td colspan="3">Tổng cộng</td><td class="text-end text-primary">@Model.Total.ToString("N0")đ</td></tr></tfoot>
+</table>

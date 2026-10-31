@@ -1,0 +1,10 @@
+@{
+    ViewData["Title"] = "Lỗi";
+    int code = ViewBag.Code ?? 500;
+    var text = code switch { 404 => "Không tìm thấy trang.", 403 => "Bạn không có quyền truy cập.", _ => "Có lỗi xảy ra." };
+}
+<div class="text-center py-5">
+    <div class="display-1 fw-bold text-primary">@code</div>
+    <p class="lead">@text</p>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-dark">Về trang chủ</a>
+</div>

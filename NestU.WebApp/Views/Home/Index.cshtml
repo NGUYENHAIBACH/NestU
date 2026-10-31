@@ -1,0 +1,53 @@
+@model List<NestU.WebApp.Models.Rooms.RoomListDto>
+@{
+    ViewData["Title"] = "Trang chủ";
+    NestU.WebApp.ApiClients.HomeStatsDto? stats = ViewBag.Stats;
+}
+<section class="hero rounded-4 p-4 p-md-5 mb-4 text-white">
+    <div class="d-flex align-items-center gap-2 small mb-3 opacity-75">
+        <i class="bi bi-house-heart"></i><i class="bi bi-fire"></i><i class="bi bi-lightning-charge"></i>
+        <span>100% nhà trọ đạt chuẩn PCCC</span>
+    </div>
+    <h1 class="display-5 fw-bold mb-3">Tìm Trọ An Toàn<br />Sống Trọn Tuổi Trẻ</h1>
+    <p class="lead opacity-75 mb-4" style="max-width: 640px">
+        Kết nối sinh viên và người đi làm với nhà trọ đã kiểm duyệt PCCC, giá điện minh bạch không quá 4.000đ/kWh,
+        hợp đồng và hóa đơn quản lý trực tuyến.
+    </p>
+    <a asp-controller="Rooms" asp-action="Index" class="btn btn-primary btn-lg">Tìm phòng ngay</a>
+</section>
+
+@if (ViewBag.ApiDown == true)
+{
+    <div class="alert alert-warning"><i class="bi bi-plug me-2"></i>Chưa kết nối được tới API (https://localhost:7001). Hãy chạy NestU.API trước.</div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="stat card p-3"><div class="h3 mb-0">@(stats?.AvailableRooms.ToString() ?? "—")</div><div class="small text-secondary">Phòng đang trống</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat card p-3"><div class="h3 mb-0">@(stats?.ActiveHouses.ToString() ?? "—")</div><div class="small text-secondary">Nhà trọ đạt PCCC</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat card p-3"><div class="h3 mb-0">4.000đ</div><div class="small text-secondary">Giá điện tối đa / kWh</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat card p-3"><div class="h3 mb-0">@(stats?.ActiveTenants.ToString() ?? "—")</div><div class="small text-secondary">Người đang thuê</div></div></div>
+</div>
+
+<form asp-controller="Rooms" asp-action="Index" method="get" class="card p-3 mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5"><label class="form-label small">Từ khóa</label><input name="Keyword" class="form-control" placeholder="Tên nhà trọ, địa chỉ, khu vực..." /></div>
+        <div class="col-md-3"><label class="form-label small">Giá tối đa</label><input name="MaxPrice" type="number" step="100000" class="form-control" placeholder="3.000.000" /></div>
+        <div class="col-md-2"><label class="form-label small">Tầng</label><input name="Floor" type="number" min="1" class="form-control" /></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>Tìm</button></div>
+    </div>
+</form>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4 mb-0">Phòng nổi bật</h2>
+    <a asp-controller="Rooms" asp-action="Index" class="small">Xem tất cả →</a>
+</div>
+<div class="row g-3">
+    @foreach (var r in Model)
+    {
+        <div class="col-sm-6 col-lg-4"><partial name="_RoomCard" model="r" /></div>
+    }
+    @if (Model.Count == 0)
+    {
+        <div class="col-12 text-secondary">Chưa có phòng nào.</div>
+    }
+</div>
