@@ -27,5 +27,6 @@ Dán lần lượt các lời nhắc A → D trong `docs/PROMPTS.md` để biên
 - `docs/NestU-design.md` — tài liệu thiết kế bản chốt (phạm vi, CSDL, ràng buộc, luồng, endpoint, kế hoạch 7 ngày)
 - `docs/PROMPTS.md` — lời nhắc cho Claude Code (biên dịch, chạy, sửa lỗi)
 - `docs/HUONG-DAN-CHAY.md` — cách chạy, tài khoản demo, kịch bản demo, case lỗi cố ý
+- `docs/NestUDb.sql` — script T-SQL tạo CSDL (tương đương model EF Core), dùng cho báo cáo hoặc tạo tay
 - `docs/de-bai-PRN232.png` — đề bài
 - `docs/tham-khao-mo-hinh-thuong-mai.md` — mô hình thương mại BHMS + BHRP, chỉ dùng cho mục "Hướng phát triển" trong báo cáo, **không code**
