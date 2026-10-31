@@ -1,0 +1,12 @@
+@model NestU.WebApp.Models.Admin.AdminStatsDto
+@{ ViewData["Title"] = "Quản trị"; }
+<h1 class="h4 mb-3">Bảng điều khiển</h1>
+<div class="row g-3">
+    <div class="col-6 col-md-3"><a asp-controller="LandlordApprovals" asp-action="Index" class="card p-3 text-decoration-none text-dark"><div class="small text-secondary">Chủ trọ chờ duyệt</div><div class="h3 mb-0 text-primary">@Model.PendingLandlords</div></a></div>
+    <div class="col-6 col-md-3"><a asp-controller="Certificates" asp-action="Index" class="card p-3 text-decoration-none text-dark"><div class="small text-secondary">Giấy PCCC chờ duyệt</div><div class="h3 mb-0 text-primary">@Model.PendingCertificates</div></a></div>
+    <div class="col-6 col-md-3"><a asp-controller="Reports" asp-action="Index" class="card p-3 text-decoration-none text-dark"><div class="small text-secondary">Khiếu nại mới</div><div class="h3 mb-0 text-danger">@Model.OpenReports</div></a></div>
+    <div class="col-6 col-md-3"><a asp-controller="Users" asp-action="Index" class="card p-3 text-decoration-none text-dark"><div class="small text-secondary">Tài khoản</div><div class="h3 mb-0">@Model.TotalUsers</div></a></div>
+    <div class="col-6 col-md-4"><div class="card p-3"><div class="small text-secondary">Nhà trọ đang hoạt động (đạt PCCC)</div><div class="h3 mb-0 text-success">@Model.ActiveHouses</div></div></div>
+    <div class="col-6 col-md-4"><div class="card p-3"><div class="small text-secondary">Tổng số phòng</div><div class="h3 mb-0">@Model.TotalRooms</div></div></div>
+    <div class="col-6 col-md-4"><div class="card p-3"><div class="small text-secondary">Hợp đồng đang hiệu lực</div><div class="h3 mb-0">@Model.ActiveContracts</div></div></div>
+</div>
