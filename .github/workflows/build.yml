@@ -1,0 +1,121 @@
+name: Build & smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "NestU_Str0ng!Pass"
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P NestU_Str0ng!Pass -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build NestU.API
+        run: dotnet build NestU.API/NestU.API.csproj -c Debug --nologo -warnaserror- 2>&1 | tee build-api.log
+
+      - name: Build NestU.WebApp
+        run: dotnet build NestU.WebApp/NestU.WebApp.csproj -c Debug --nologo 2>&1 | tee build-web.log
+
+      - name: Migration + smoke test API
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5001
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=NestUDb;User Id=sa;Password=NestU_Str0ng!Pass;TrustServerCertificate=True"
+        run: |
+          set -o pipefail
+          dotnet tool install --global dotnet-ef --version 8.* >/dev/null
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          cd NestU.API
+          dotnet ef migrations add InitialCreate --no-build 2>&1 | tee ../migration.log
+          dotnet build --nologo -v q 2>&1 | tail -3
+          (dotnet run --no-build 2>&1 | tee ../api-run.log) &
+          for i in $(seq 1 60); do curl -sf http://localhost:5001/swagger/v1/swagger.json -o /dev/null && break; sleep 2; done
+          cd ..
+          echo "== swagger ==" | tee smoke.log
+          curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5001/swagger/v1/swagger.json | tee -a smoke.log
+          echo "== login chutro1 ==" | tee -a smoke.log
+          TOKEN=$(curl -s -X POST http://localhost:5001/api/auth/login -H 'Content-Type: application/json' -d '{"email":"chutro1@nestu.vn","password":"NestU@123"}' | tee -a smoke.log | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])')
+          echo | tee -a smoke.log
+          echo "== login chutro2 (pending) ==" | tee -a smoke.log
+          TOKEN2=$(curl -s -X POST http://localhost:5001/api/auth/login -H 'Content-Type: application/json' -d '{"email":"chutro2@nestu.vn","password":"NestU@123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])')
+          echo "== login sinhvien1 ==" | tee -a smoke.log
+          TOKEN3=$(curl -s -X POST http://localhost:5001/api/auth/login -H 'Content-Type: application/json' -d '{"email":"sinhvien1@nestu.vn","password":"NestU@123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])')
+          for u in "/api/auth/me" "/api/public/lookups" "/api/public/stats" "/odata/Rooms?\$count=true&\$top=2&\$filter=Price%20le%203000000&\$orderby=Price" "/api/rooms/1" "/api/houses/1" "/api/rooms/featured?take=3"; do
+            echo "== GET $u ==" | tee -a smoke.log
+            curl -s -w "\nHTTP %{http_code}\n" "http://localhost:5001$u" -H "Authorization: Bearer $TOKEN" | head -c 600 | tee -a smoke.log; echo | tee -a smoke.log
+          done
+          echo "== landlord houses as chutro1 (expect 200) ==" | tee -a smoke.log
+          curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5001/api/landlord/houses -H "Authorization: Bearer $TOKEN" | tee -a smoke.log
+          echo "== landlord houses as chutro2 pending (expect 403) ==" | tee -a smoke.log
+          curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5001/api/landlord/houses -H "Authorization: Bearer $TOKEN2" | tee -a smoke.log
+          echo "== landlord houses as tenant (expect 403) ==" | tee -a smoke.log
+          curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5001/api/landlord/houses -H "Authorization: Bearer $TOKEN3" | tee -a smoke.log
+          echo "== create house gia dien 5000 (expect 400) ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/landlord/houses -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"name":"Test","address":"1 A","areaId":1,"totalFloors":2,"electricityPrice":5000,"waterPrice":10000,"waterBillingType":"PerM3","allowedTenantType":"All"}' | tee -a smoke.log
+          echo "== floors house 1 ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" http://localhost:5001/api/landlord/houses/1/floors -H "Authorization: Bearer $TOKEN" | tee -a smoke.log
+          echo "== bulk rooms floor 1 101-102 (expect 409 trung) ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/landlord/houses/1/rooms/bulk -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"floor":1,"fromNumber":1,"toNumber":2,"area":20,"price":2500000,"capacity":2}' | tee -a smoke.log
+          echo "== bulk rooms floor 1 105-106 (expect 201) ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/landlord/houses/1/rooms/bulk -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"floor":1,"fromNumber":5,"toNumber":6,"area":20,"price":2500000,"capacity":2}' | head -c 400 | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== tenant rental request room 1 (expect 201) ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/tenant/rental-requests -H "Authorization: Bearer $TOKEN3" -H 'Content-Type: application/json' -d "{\"roomId\":1,\"numberOfOccupants\":1,\"moveInDate\":\"$(date -d '+3 days' +%Y-%m-%d)\",\"durationMonths\":6}" | head -c 400 | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== landlord approve request 1 (expect 200) ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X PUT http://localhost:5001/api/landlord/rental-requests/1/approve -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"depositPaid":true,"serviceIds":[1,2],"members":[]}' | head -c 600 | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== tenant contracts ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" http://localhost:5001/api/tenant/contracts -H "Authorization: Bearer $TOKEN3" | head -c 600 | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== tenant confirm assets (expect 204) ==" | tee -a smoke.log
+          curl -s -o /dev/null -w "%{http_code}\n" -X PUT http://localhost:5001/api/tenant/contracts/1/assets/confirm -H "Authorization: Bearer $TOKEN3" | tee -a smoke.log
+          M=$(date +%-m); Y=$(date +%Y)
+          echo "== reading + invoice ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/landlord/readings -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "{\"contractId\":1,\"month\":$M,\"year\":$Y,\"electricIndex\":120,\"waterIndex\":15}" | head -c 300 | tee -a smoke.log; echo | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/landlord/invoices/generate -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "{\"contractId\":1,\"month\":$M,\"year\":$Y}" | head -c 900 | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== duplicate invoice (expect 409) ==" | tee -a smoke.log
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:5001/api/landlord/invoices/generate -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "{\"contractId\":1,\"month\":$M,\"year\":$Y}" | tee -a smoke.log
+          echo "== tenant invoices ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" http://localhost:5001/api/tenant/invoices -H "Authorization: Bearer $TOKEN3" | head -c 400 | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== deposit settlement (expect 201) ==" | tee -a smoke.log
+          curl -s -w "\nHTTP %{http_code}\n" -X POST http://localhost:5001/api/landlord/contracts/1/deposit-settlement -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"deductUnpaidInvoices":true}' | tee -a smoke.log; echo | tee -a smoke.log
+          echo "== admin stats ==" | tee -a smoke.log
+          TOKENA=$(curl -s -X POST http://localhost:5001/api/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@nestu.vn","password":"NestU@123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])')
+          curl -s -w "\nHTTP %{http_code}\n" http://localhost:5001/api/admin/stats -H "Authorization: Bearer $TOKENA" | tee -a smoke.log
+          echo "== API log tail ==" | tee -a smoke.log
+          tail -40 api-run.log | tee -a smoke.log
+
+      - name: Smoke test WebApp (render pages)
+        if: always()
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5002
+          ApiSettings__BaseUrl: http://localhost:5001/
+        run: |
+          cd NestU.WebApp
+          (dotnet run --no-build 2>&1 | tee ../web-run.log) &
+          for i in $(seq 1 60); do curl -sf http://localhost:5002/ -o /dev/null && break; sleep 2; done
+          cd ..
+          for u in "/" "/Rooms" "/Rooms?MaxPrice=3000000&Floor=2" "/Rooms/Details/1" "/Rooms/House/1" "/Account/Login" "/Account/Register" "/Tenant" "/Landlord" "/Admin"; do
+            printf "%-45s " "$u"; curl -s -o /tmp/page.html -w "%{http_code} %{redirect_url}\n" "http://localhost:5002$u"; grep -c "Exception\|error-page\|An unhandled exception" /tmp/page.html | sed 's/^/   exceptions_in_page=/'
+          done | tee web-smoke.log
+          echo "== WebApp log tail =="; tail -30 web-run.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: |
+            *.log
