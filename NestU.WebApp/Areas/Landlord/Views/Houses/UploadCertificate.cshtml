@@ -1,0 +1,13 @@
+@model NestU.WebApp.Models.Houses.CreateCertificateDto
+@{ ViewData["Title"] = "Upload giấy PCCC"; }
+<div class="card p-4" style="max-width: 560px">
+    <h1 class="h4 mb-3">Upload giấy chứng nhận PCCC</h1>
+    <form method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="HouseId" />
+        <div class="mb-3"><label asp-for="CertificateNo" class="form-label"></label><input asp-for="CertificateNo" class="form-control" placeholder="PCCC-2026-0001" /><span asp-validation-for="CertificateNo" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="File" class="form-label"></label><input asp-for="File" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-control" /><span asp-validation-for="File" class="text-danger small"></span></div>
+        <div class="alert alert-light border small">Sau khi quản trị viên duyệt, nhà trọ chuyển sang <strong>Đang hoạt động</strong>, phòng hiện công khai và nhận yêu cầu thuê.</div>
+        <button class="btn btn-primary">Gửi duyệt</button><a asp-action="Details" asp-route-id="@Model.HouseId" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

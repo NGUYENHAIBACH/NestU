@@ -1,0 +1,57 @@
+@model NestU.WebApp.Models.Houses.HouseDto
+@{
+    ViewData["Title"] = Model.Name;
+    List<NestU.WebApp.Models.Houses.FloorSummaryDto> floors = ViewBag.Floors;
+    List<NestU.WebApp.Models.Rooms.RoomListDto> rooms = ViewBag.Rooms;
+    List<NestU.WebApp.Models.Houses.CertificateDto> certs = ViewBag.Certificates;
+    ViewData["RoomUrl"] = (Func<int, string>)(id => Url.Action("Details", "Rooms", new { area = "Landlord", id })!);
+}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div><h1 class="h4 mb-0">@Model.Name <partial name="_StatusBadge" model="@Model.Status" /></h1><div class="text-secondary">@Model.Address · @Model.AreaName</div></div>
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-dark btn-sm">Sửa</a>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Xóa nhà trọ này?')">@Html.AntiForgeryToken()<button class="btn btn-outline-danger btn-sm">Xóa</button></form>
+    </div>
+</div>
+
+@if (Model.Status != "Active")
+{
+    <div class="alert @(Model.Status == "Rejected" ? "alert-danger" : "alert-warning")">
+        <i class="bi bi-fire me-2"></i>
+        @if (Model.CertificateStatus is null) { <span>Nhà trọ chưa hoạt động. Hãy <a asp-action="UploadCertificate" asp-route-id="@Model.Id">upload giấy chứng nhận PCCC</a> để quản trị viên duyệt.</span> }
+        else if (Model.CertificateStatus == "Pending") { <span>Giấy PCCC đang chờ duyệt. Phòng chưa hiện công khai.</span> }
+        else if (Model.CertificateStatus == "Rejected") { <span>Giấy PCCC bị từ chối: @Model.CertificateNote. <a asp-action="UploadCertificate" asp-route-id="@Model.Id">Nộp lại</a>.</span> }
+    </div>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card p-3"><div class="small text-secondary">Giá điện</div><div class="fw-semibold">@Model.ElectricityPrice.ToString("N0")đ/kWh</div></div></div>
+    <div class="col-md-3"><div class="card p-3"><div class="small text-secondary">Giá nước</div><div class="fw-semibold">@Model.WaterPrice.ToString("N0")đ/@(Model.WaterBillingType == "PerM3" ? "m³" : "người")</div></div></div>
+    <div class="col-md-3"><div class="card p-3"><div class="small text-secondary">Đối tượng</div><div class="fw-semibold">@(Model.AllowedTenantType == "StudentOnly" ? "Chỉ sinh viên" : "Mọi đối tượng")</div></div></div>
+    <div class="col-md-3"><div class="card p-3"><div class="small text-secondary">Phòng</div><div class="fw-semibold">@Model.RoomCount · còn @Model.AvailableRoomCount</div></div></div>
+</div>
+
+<div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0">Sơ đồ tầng</h2>
+        <div class="small"><span class="badge room-tile available d-inline-block" style="width:auto;height:auto;padding:2px 8px">Còn trống</span> <span class="badge room-tile occupied d-inline-block" style="width:auto;height:auto;padding:2px 8px">Đang thuê</span> <span class="badge room-tile maintenance d-inline-block" style="width:auto;height:auto;padding:2px 8px">Đang sửa</span></div>
+    </div>
+    @foreach (var f in floors.OrderByDescending(x => x.Floor))
+    {
+        <div class="d-flex align-items-start gap-3 border-top py-2">
+            <div style="min-width: 110px"><div class="fw-semibold">Tầng @f.Floor</div><div class="small text-secondary">@f.TotalRooms phòng · trống @f.Available</div>
+                <div class="d-flex gap-1 mt-1"><a asp-controller="Rooms" asp-action="Create" asp-route-houseId="@Model.Id" asp-route-floor="@f.Floor" class="btn btn-outline-dark btn-sm py-0" title="Thêm 1 phòng"><i class="bi bi-plus"></i></a><a asp-controller="Rooms" asp-action="Bulk" asp-route-houseId="@Model.Id" asp-route-floor="@f.Floor" class="btn btn-outline-dark btn-sm py-0" title="Tạo hàng loạt"><i class="bi bi-grid-3x3-gap"></i></a></div>
+            </div>
+            <div class="flex-grow-1"><partial name="_FloorRow" model="@rooms.Where(r => r.Floor == f.Floor).ToList()" view-data="ViewData" /></div>
+        </div>
+    }
+</div>
+
+<div class="card p-3">
+    <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h6 mb-0">Giấy chứng nhận PCCC</h2><a asp-action="UploadCertificate" asp-route-id="@Model.Id" class="btn btn-outline-dark btn-sm">Upload giấy mới</a></div>
+    <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light"><tr><th>Số giấy</th><th>Ngày nộp</th><th>Trạng thái</th><th>Ghi chú</th><th></th></tr></thead>
+        <tbody>@foreach (var c in certs) { <tr><td>@c.CertificateNo</td><td>@c.UploadedAt.ToLocalTime().ToString("dd/MM/yyyy")</td><td><partial name="_StatusBadge" model="@c.Status" /></td><td class="small">@c.ReviewNote</td><td class="text-end"><a href="@(Config["ApiSettings:BaseUrl"]!.TrimEnd('/') + c.FileUrl)" target="_blank" class="small">Xem file</a></td></tr> }
+        @if (certs.Count == 0) { <tr><td colspan="5" class="text-center text-secondary">Chưa nộp giấy PCCC.</td></tr> }</tbody>
+    </table>
+</div>

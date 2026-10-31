@@ -1,0 +1,29 @@
+@model NestU.WebApp.Models.Houses.CreateHouseDto
+@{ var edit = Model.Id > 0; ViewData["Title"] = edit ? "Sửa nhà trọ" : "Thêm nhà trọ"; }
+<div class="card p-4">
+    <h1 class="h4 mb-3">@ViewData["Title"]</h1>
+    <form method="post" asp-action="@(edit ? "Edit" : "Create")" asp-route-id="@(edit ? Model.Id : null)">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <div class="row">
+            <div class="col-md-8 mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+            <div class="col-md-4 mb-3"><label asp-for="AreaId" class="form-label"></label><select asp-for="AreaId" asp-items="ViewBag.Areas" class="form-select"><option value="">-- Chọn --</option></select><span asp-validation-for="AreaId" class="text-danger small"></span></div>
+            <div class="col-12 mb-3"><label asp-for="Address" class="form-label"></label><input asp-for="Address" class="form-control" /><span asp-validation-for="Address" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="TotalFloors" class="form-label"></label><input asp-for="TotalFloors" type="number" min="1" max="50" class="form-control" /><span asp-validation-for="TotalFloors" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="ElectricityPrice" class="form-label"></label><input asp-for="ElectricityPrice" type="number" step="100" min="1" max="4000" class="form-control" /><div class="form-text">Quy định: tối đa 4.000đ/kWh</div><span asp-validation-for="ElectricityPrice" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="WaterPrice" class="form-label"></label><input asp-for="WaterPrice" type="number" step="1000" class="form-control" /><span asp-validation-for="WaterPrice" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="WaterBillingType" class="form-label"></label><select asp-for="WaterBillingType" class="form-select"><option value="PerM3">Theo m³ (ghi chỉ số)</option><option value="PerPerson">Theo người</option></select></div>
+            <div class="col-md-4 mb-3"><label asp-for="AllowedTenantType" class="form-label"></label><select asp-for="AllowedTenantType" class="form-select"><option value="All">Mọi đối tượng</option><option value="StudentOnly">Chỉ sinh viên</option></select></div>
+            <div class="col-md-4 mb-3"><label asp-for="Latitude" class="form-label"></label><input asp-for="Latitude" type="number" step="any" class="form-control" /></div>
+            <div class="col-md-4 mb-3"><label asp-for="Longitude" class="form-label"></label><input asp-for="Longitude" type="number" step="any" class="form-control" /></div>
+            <div class="col-12 mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
+        </div>
+        <h2 class="h6 mt-2">Tài khoản nhận tiền (hiện trên hóa đơn / mã QR)</h2>
+        <div class="row">
+            <div class="col-md-3 mb-3"><label asp-for="BankCode" class="form-label"></label><input asp-for="BankCode" class="form-control" placeholder="VCB" /></div>
+            <div class="col-md-4 mb-3"><label asp-for="BankAccount" class="form-label"></label><input asp-for="BankAccount" class="form-control" /></div>
+            <div class="col-md-5 mb-3"><label asp-for="AccountName" class="form-label"></label><input asp-for="AccountName" class="form-control" /></div>
+        </div>
+        <button class="btn btn-primary">@(edit ? "Lưu thay đổi" : "Tạo nhà trọ")</button>
+        <a asp-action="Index" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

@@ -1,0 +1,19 @@
+@model List<NestU.WebApp.Models.Houses.HouseDto>
+@{ ViewData["Title"] = "Nhà trọ"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Nhà trọ của tôi</h1><a asp-action="Create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Thêm nhà trọ</a></div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Nhà trọ</th><th>Tầng / phòng</th><th>Giá điện</th><th>PCCC</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var h in Model)
+    {
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@h.Id" class="fw-semibold text-dark">@h.Name</a><div class="small text-secondary">@h.Address · @h.AreaName</div></td>
+            <td>@h.TotalFloors tầng · @h.RoomCount phòng<div class="small text-secondary">còn trống @h.AvailableRoomCount</div></td>
+            <td>@h.ElectricityPrice.ToString("N0")đ/kWh</td>
+            <td>@if (h.CertificateStatus is null) { <span class="badge text-bg-secondary">Chưa nộp</span> } else { <partial name="_StatusBadge" model="@h.CertificateStatus" /> }</td>
+            <td><partial name="_StatusBadge" model="@h.Status" /></td>
+            <td class="text-end"><a asp-action="Details" asp-route-id="@h.Id" class="btn btn-outline-dark btn-sm">Quản lý</a></td>
+        </tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Chưa có nhà trọ.</td></tr> }
+    </tbody></table></div>
