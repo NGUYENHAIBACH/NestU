@@ -1,0 +1,21 @@
+@model NestU.WebApp.Models.Rooms.UpdateRoomDto
+@{ ViewData["Title"] = $"Sửa phòng {Model.RoomNumber}"; }
+<div class="card p-4">
+    <h1 class="h4 mb-3">Sửa phòng @Model.RoomNumber</h1>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="BoardingHouseId" /><input type="hidden" asp-for="TotalFloors" />
+        <div class="row">
+            <div class="col-md-3 mb-3"><label asp-for="Floor" class="form-label"></label><select asp-for="Floor" asp-items="ViewBag.Floors" class="form-select"></select><span asp-validation-for="Floor" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="RoomNumber" class="form-label"></label><input asp-for="RoomNumber" class="form-control" /><span asp-validation-for="RoomNumber" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="Area" class="form-label"></label><input asp-for="Area" type="number" step="0.5" class="form-control" /><span asp-validation-for="Area" class="text-danger small"></span></div>
+            <div class="col-md-3 mb-3"><label asp-for="Capacity" class="form-label"></label><input asp-for="Capacity" type="number" min="1" max="10" class="form-control" /><span asp-validation-for="Capacity" class="text-danger small"></span></div>
+            <div class="col-md-4 mb-3"><label asp-for="Price" class="form-label"></label><input asp-for="Price" type="number" step="100000" class="form-control" /><span asp-validation-for="Price" class="text-danger small"></span></div>
+            <div class="col-md-4 mb-3"><label asp-for="DepositAmount" class="form-label"></label><input asp-for="DepositAmount" type="number" step="100000" class="form-control" /><span asp-validation-for="DepositAmount" class="text-danger small"></span></div>
+            <div class="col-12 mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+            <div class="col-12 mb-3"><label asp-for="ImageUrlsText" class="form-label"></label><textarea asp-for="ImageUrlsText" class="form-control" rows="2"></textarea></div>
+        </div>
+        <partial name="_RoomFormFields" model="Model" />
+        <button class="btn btn-primary">Lưu</button><a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

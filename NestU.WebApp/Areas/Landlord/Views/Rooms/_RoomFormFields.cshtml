@@ -1,0 +1,13 @@
+@model dynamic
+@{
+    List<NestU.WebApp.Models.Common.LookupItem> amenities = ViewBag.Amenities;
+    List<int> selected = Model.AmenityIds;
+}
+<div class="mb-3"><label class="form-label">Tiện ích</label>
+    <div class="d-flex flex-wrap gap-3">
+        @foreach (var a in amenities)
+        {
+            <div class="form-check"><input type="checkbox" name="AmenityIds" value="@a.Id" class="form-check-input" id="am@(a.Id)" @(selected.Contains(a.Id) ? "checked" : "") /><label class="form-check-label" for="am@(a.Id)">@a.Name</label></div>
+        }
+    </div>
+</div>

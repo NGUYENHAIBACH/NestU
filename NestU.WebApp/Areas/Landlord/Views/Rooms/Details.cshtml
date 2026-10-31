@@ -1,0 +1,74 @@
+@model NestU.WebApp.Models.Rooms.RoomDetailDto
+@{ ViewData["Title"] = $"Phòng {Model.RoomNumber}"; }
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div><h1 class="h4 mb-0">Phòng @Model.RoomNumber <partial name="_StatusBadge" model="@Model.Status" /></h1><div class="text-secondary">@Model.HouseName · tầng @Model.Floor · @Model.Area m² · @Model.Capacity người · @Model.Price.ToString("N0")đ/tháng · cọc @Model.DepositAmount.ToString("N0")đ · @Model.ViewCount lượt xem</div></div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-dark btn-sm">Sửa</a>
+        @if (Model.Status == "Available") { <form asp-action="SetStatus" asp-route-id="@Model.Id" method="post">@Html.AntiForgeryToken()<input type="hidden" name="status" value="Maintenance" /><button class="btn btn-outline-warning btn-sm">Đặt Đang sửa</button></form> }
+        @if (Model.Status == "Maintenance") { <form asp-action="SetStatus" asp-route-id="@Model.Id" method="post">@Html.AntiForgeryToken()<input type="hidden" name="status" value="Available" /><button class="btn btn-outline-success btn-sm">Mở cho thuê</button></form> }
+        <form asp-action="Delete" asp-route-id="@Model.Id" asp-route-houseId="@Model.HouseId" method="post" onsubmit="return confirm('Xóa phòng này?')">@Html.AntiForgeryToken()<button class="btn btn-outline-danger btn-sm">Xóa</button></form>
+        <a asp-area="" asp-controller="Rooms" asp-action="Details" asp-route-id="@Model.Id" target="_blank" class="btn btn-link btn-sm">Xem trang công khai</a>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h6 mb-0">Tài sản trong phòng</h2></div>
+            <table class="table table-sm align-middle">
+                <thead class="table-light"><tr><th>Tên</th><th>Loại</th><th class="text-center">SL</th><th>Tình trạng</th><th class="text-end">Giá trị</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var a in Model.Assets)
+                {
+                    var fid = $"upd-{a.Id}";
+                    <tr>
+                        <td><input name="Name" value="@a.Name" form="@fid" class="form-control form-control-sm" /></td>
+                        <td class="small text-secondary">@a.AssetTypeName</td>
+                        <td><input name="Quantity" value="@a.Quantity" form="@fid" type="number" min="1" class="form-control form-control-sm text-center" style="width:64px" /></td>
+                        <td><select name="Condition" form="@fid" class="form-select form-select-sm"><option value="Good" selected="@(a.Condition == "Good")">Tốt</option><option value="Damaged" selected="@(a.Condition == "Damaged")">Hư nhẹ</option><option value="Broken" selected="@(a.Condition == "Broken")">Hỏng</option></select></td>
+                        <td><input name="EstimatedValue" value="@a.EstimatedValue" form="@fid" type="number" step="10000" class="form-control form-control-sm text-end" style="width:120px" /></td>
+                        <td class="text-end text-nowrap">
+                            <button form="@fid" class="btn btn-sm btn-outline-dark" title="Lưu"><i class="bi bi-check"></i></button>
+                            <button form="del-@a.Id" class="btn btn-sm btn-outline-danger" title="Xóa" onclick="return confirm('Xóa @a.Name?')"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                }
+                @if (Model.Assets.Count == 0) { <tr><td colspan="6" class="text-center text-secondary">Chưa có tài sản</td></tr> }
+                </tbody>
+            </table>
+            @foreach (var a in Model.Assets)
+            {
+                <form id="upd-@a.Id" asp-action="UpdateAsset" method="post">@Html.AntiForgeryToken()<input type="hidden" name="Id" value="@a.Id" /><input type="hidden" name="RoomId" value="@Model.Id" /><input type="hidden" name="AssetTypeId" value="@a.AssetTypeId" /></form>
+                <form id="del-@a.Id" asp-action="DeleteAsset" method="post">@Html.AntiForgeryToken()<input type="hidden" name="roomId" value="@Model.Id" /><input type="hidden" name="assetId" value="@a.Id" /></form>
+            }
+            <hr />
+            <h3 class="h6">Thêm tài sản</h3>
+            <form asp-action="AddAsset" method="post" class="row g-2 align-items-end">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RoomId" value="@Model.Id" />
+                <div class="col-md-3"><label class="form-label small">Loại</label><select name="AssetTypeId" asp-items="ViewBag.AssetTypes" class="form-select form-select-sm" required></select></div>
+                <div class="col-md-3"><label class="form-label small">Tên</label><input name="Name" class="form-control form-control-sm" required /></div>
+                <div class="col-md-2"><label class="form-label small">SL</label><input name="Quantity" value="1" type="number" min="1" class="form-control form-control-sm" /></div>
+                <div class="col-md-2"><label class="form-label small">Giá trị</label><input name="EstimatedValue" value="0" type="number" step="10000" class="form-control form-control-sm" /></div>
+                <input type="hidden" name="Condition" value="Good" />
+                <div class="col-md-2"><button class="btn btn-primary btn-sm w-100">Thêm</button></div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-3 mb-3">
+            <h2 class="h6">Sao chép tài sản sang phòng khác</h2>
+            <form asp-action="CopyAssets" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="SourceRoomId" value="@Model.Id" />
+                <select name="TargetRoomIds" asp-items="ViewBag.OtherRooms" class="form-select mb-2" multiple size="6"></select>
+                <div class="form-check mb-2"><input type="checkbox" name="ReplaceExisting" value="true" class="form-check-input" id="rep" /><label class="form-check-label small" for="rep">Xóa tài sản cũ của phòng đích trước</label></div>
+                <button class="btn btn-outline-dark btn-sm" @(Model.Assets.Count == 0 ? "disabled" : "")>Sao chép</button>
+            </form>
+        </div>
+        <div class="card p-3">
+            <h2 class="h6">Tiện ích</h2>
+            <div class="d-flex flex-wrap gap-2">@foreach (var a in Model.Amenities) { <span class="badge text-bg-light border">@a</span> }@if (Model.Amenities.Count == 0) { <span class="small text-secondary">Chưa có</span> }</div>
+            @if (Model.ImageUrls.Count > 0) { <hr /><div class="d-flex flex-wrap gap-2">@foreach (var u in Model.ImageUrls) { <img src="@u" style="width:96px;height:72px;object-fit:cover" class="rounded" alt="" /> }</div> }
+        </div>
+    </div>
+</div>

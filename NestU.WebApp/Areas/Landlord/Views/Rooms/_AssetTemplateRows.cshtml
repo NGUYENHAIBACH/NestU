@@ -1,0 +1,37 @@
+@model List<NestU.WebApp.Models.Assets.AssetTemplateDto>
+<div class="mb-3">
+    <label class="form-label">Tài sản kèm theo (tuỳ chọn)</label>
+    <table class="table table-sm align-middle" id="assetTable">
+        <thead class="table-light"><tr><th style="width:30%">Loại</th><th>Tên</th><th style="width:90px">SL</th><th style="width:160px">Giá trị (đ)</th><th style="width:40px"></th></tr></thead>
+        <tbody>
+        @for (var i = 0; i < Math.Max(Model.Count, 1); i++)
+        {
+            var a = i < Model.Count ? Model[i] : new NestU.WebApp.Models.Assets.AssetTemplateDto();
+            <tr>
+                <td><select name="Assets[@i].AssetTypeId" asp-items="ViewBag.AssetTypes" class="form-select form-select-sm"><option value="0">-- Loại --</option></select></td>
+                <td><input name="Assets[@i].Name" value="@a.Name" class="form-control form-control-sm" placeholder="Giường 1m4" /></td>
+                <td><input name="Assets[@i].Quantity" value="@a.Quantity" type="number" min="1" class="form-control form-control-sm" /></td>
+                <td><input name="Assets[@i].EstimatedValue" value="@a.EstimatedValue" type="number" step="10000" class="form-control form-control-sm" /></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger" onclick="this.closest('tr').remove()"><i class="bi bi-x"></i></button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-outline-dark btn-sm" id="addAssetRow"><i class="bi bi-plus"></i> Thêm dòng</button>
+</div>
+<script>
+    document.getElementById('addAssetRow').addEventListener('click', function () {
+        const tbody = document.querySelector('#assetTable tbody');
+        const rows = tbody.querySelectorAll('tr');
+        const tpl = rows[rows.length - 1] || null;
+        const idx = rows.length;
+        const tr = document.createElement('tr');
+        const sel = tpl ? tpl.querySelector('select').innerHTML : '<option value="0">-- Loại --</option>';
+        tr.innerHTML = `<td><select name="Assets[${idx}].AssetTypeId" class="form-select form-select-sm">${sel}</select></td>
+            <td><input name="Assets[${idx}].Name" class="form-control form-control-sm" /></td>
+            <td><input name="Assets[${idx}].Quantity" value="1" type="number" min="1" class="form-control form-control-sm" /></td>
+            <td><input name="Assets[${idx}].EstimatedValue" value="0" type="number" step="10000" class="form-control form-control-sm" /></td>
+            <td><button type="button" class="btn btn-sm btn-link text-danger" onclick="this.closest('tr').remove()"><i class="bi bi-x"></i></button></td>`;
+        tbody.appendChild(tr);
+    });
+</script>

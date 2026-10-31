@@ -1,0 +1,19 @@
+@model List<NestU.WebApp.Models.Rooms.RoomListDto>
+@{ ViewData["Title"] = "Phòng"; }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 mb-0">Phòng</h1>
+    <form method="get" class="d-flex gap-2">
+        <select name="houseId" asp-items="ViewBag.Houses" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">Tất cả nhà trọ</option></select>
+        <input name="floor" value="@ViewBag.Floor" type="number" min="1" placeholder="Tầng" class="form-control form-control-sm" style="width: 90px" />
+        <button class="btn btn-outline-dark btn-sm">Lọc</button>
+    </form>
+</div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Phòng</th><th>Nhà trọ</th><th>Tầng</th><th class="text-end">Giá</th><th>DT / SC</th><th>Trạng thái</th><th class="text-end">Lượt xem</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var r in Model)
+    {
+        <tr><td><a asp-action="Details" asp-route-id="@r.Id" class="fw-semibold text-dark">@r.RoomNumber</a></td><td class="small">@r.HouseName</td><td>@r.Floor</td><td class="text-end">@r.Price.ToString("N0")đ</td><td class="small">@r.Area m² · @r.Capacity người</td><td><partial name="_StatusBadge" model="@r.Status" /></td><td class="text-end">@r.ViewCount</td><td class="text-end"><a asp-action="Details" asp-route-id="@r.Id" class="btn btn-outline-dark btn-sm">Chi tiết</a></td></tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="8" class="text-center text-secondary py-4">Không có phòng. Vào <a asp-controller="Houses" asp-action="Index">Nhà trọ</a> để tạo phòng theo tầng.</td></tr> }
+    </tbody></table></div>
