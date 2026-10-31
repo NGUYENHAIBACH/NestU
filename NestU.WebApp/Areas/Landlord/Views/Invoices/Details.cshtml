@@ -1,0 +1,24 @@
+@model NestU.WebApp.Models.Billing.InvoiceDto
+@{ ViewData["Title"] = $"Hóa đơn {Model.Month}/{Model.Year}"; var pending = Model.Payments.FirstOrDefault(p => p.ConfirmedAt is null); }
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div><h1 class="h4 mb-0">Hóa đơn tháng @Model.Month/@Model.Year</h1><div class="text-secondary">P.@Model.RoomNumber · @Model.HouseName · @Model.TenantName · hạn @Model.DueDate.ToString("dd/MM/yyyy")</div></div>
+    <partial name="_StatusBadge" model="@Model.DisplayStatus" />
+</div>
+<div class="row g-3">
+    <div class="col-lg-7"><div class="card p-3"><partial name="_InvoiceDetailTable" model="Model" /></div></div>
+    <div class="col-lg-5">
+        @if (Model.Status == "PendingConfirm" && pending is not null)
+        {
+            <div class="card p-3 border-info">
+                <h2 class="h6">Người thuê báo đã thanh toán</h2>
+                <div class="small mb-2">@pending.ReportedAt.ToLocalTime().ToString("HH:mm dd/MM/yyyy") · <strong>@pending.Amount.ToString("N0")đ</strong> @(pending.Note is null ? "" : $"· {pending.Note}")</div>
+                @if (pending.ProofImageUrl is not null) { <a href="@(Config["ApiSettings:BaseUrl"]!.TrimEnd('/') + pending.ProofImageUrl)" target="_blank"><img src="@(Config["ApiSettings:BaseUrl"]!.TrimEnd('/') + pending.ProofImageUrl)" class="img-fluid rounded mb-2" alt="Ảnh chuyển khoản" /></a> }
+                <form asp-action="ConfirmPayment" asp-route-id="@Model.Id" method="post" class="mb-2">@Html.AntiForgeryToken()<button class="btn btn-success w-100">Xác nhận đã nhận tiền</button></form>
+                <form asp-action="RejectPayment" asp-route-id="@Model.Id" method="post" class="input-group input-group-sm">@Html.AntiForgeryToken()<input name="reason" class="form-control" placeholder="Lý do từ chối" required /><button class="btn btn-outline-danger">Từ chối</button></form>
+            </div>
+        }
+        else if (Model.Status == "Paid") { <div class="alert alert-success">Đã thanh toán @Model.Payments.FirstOrDefault(p => p.ConfirmedAt is not null)?.ConfirmedAt?.ToLocalTime().ToString("dd/MM/yyyy").</div> }
+        else { <div class="alert alert-secondary">Chờ người thuê thanh toán.@if (Model.RejectReason is not null) { <div class="small mt-1">Lần từ chối trước: @Model.RejectReason</div> }</div> }
+        <a asp-controller="Contracts" asp-action="Details" asp-route-id="@Model.ContractId" asp-route-tab="invoices" class="btn btn-link btn-sm">← Hợp đồng</a>
+    </div>
+</div>

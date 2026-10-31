@@ -1,0 +1,20 @@
+@model List<NestU.WebApp.Models.Billing.InvoiceDto>
+@{ ViewData["Title"] = "Hóa đơn"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"><h1 class="h4 mb-0">Hóa đơn</h1>
+    <div class="d-flex gap-2">
+        <form method="get" class="d-flex gap-2">
+            <select name="houseId" asp-items="ViewBag.Houses" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">Tất cả nhà trọ</option></select>
+            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">Mọi trạng thái</option>@foreach (var s in new[] { ("Unpaid", "Chưa thanh toán"), ("PendingConfirm", "Chờ xác nhận"), ("Paid", "Đã thanh toán"), ("Overdue", "Quá hạn") }) { <option value="@s.Item1" selected="@(st == s.Item1)">@s.Item2</option> }</select>
+        </form>
+        <a asp-action="Generate" class="btn btn-primary btn-sm text-nowrap"><i class="bi bi-plus-lg me-1"></i>Lập hóa đơn</a>
+    </div></div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Tháng</th><th>Phòng</th><th>Người thuê</th><th class="text-end">Tổng</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var i in Model)
+    {
+        <tr><td>@i.Month/@i.Year</td><td>P.@i.RoomNumber<div class="small text-secondary">@i.HouseName</div></td><td>@i.TenantName</td><td class="text-end fw-semibold">@i.Total.ToString("N0")đ</td><td>@i.DueDate.ToString("dd/MM/yyyy")</td><td><partial name="_StatusBadge" model="@i.DisplayStatus" /></td>
+            <td class="text-end"><a asp-action="Details" asp-route-id="@i.Id" class="btn btn-outline-dark btn-sm">@(i.Status == "PendingConfirm" ? "Xác nhận" : "Xem")</a></td></tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="7" class="text-center text-secondary py-4">Không có hóa đơn.</td></tr> }
+    </tbody></table></div>

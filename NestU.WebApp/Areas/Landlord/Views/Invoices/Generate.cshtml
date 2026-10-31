@@ -1,0 +1,14 @@
+@model NestU.WebApp.Models.Billing.GenerateInvoiceDto
+@{ ViewData["Title"] = "Lập hóa đơn"; }
+<div class="card p-4" style="max-width: 560px">
+    <h1 class="h4 mb-3">Lập hóa đơn tháng</h1>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <div class="mb-3"><label asp-for="ContractId" class="form-label"></label><select asp-for="ContractId" asp-items="ViewBag.Contracts" class="form-select"><option value="">-- Chọn hợp đồng --</option></select><span asp-validation-for="ContractId" class="text-danger small"></span></div>
+        <div class="row"><div class="col mb-3"><label asp-for="Month" class="form-label"></label><input asp-for="Month" type="number" min="1" max="12" class="form-control" /><span asp-validation-for="Month" class="text-danger small"></span></div>
+            <div class="col mb-3"><label asp-for="Year" class="form-label"></label><input asp-for="Year" type="number" class="form-control" /></div></div>
+        <div class="mb-3"><label asp-for="DueDate" class="form-label"></label><input asp-for="DueDate" class="form-control" /></div>
+        <div class="alert alert-light border small">Hóa đơn = tiền phòng + điện (chỉ số mới − cũ) × đơn giá (≤ 4.000đ/kWh) + nước + dịch vụ đăng ký. Cần ghi chỉ số tháng này trước.</div>
+        <button class="btn btn-primary">Lập hóa đơn</button><a asp-action="Index" class="btn btn-link">Quay lại</a>
+    </form>
+</div>
