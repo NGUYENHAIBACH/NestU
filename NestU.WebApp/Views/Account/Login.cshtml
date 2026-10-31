@@ -1,0 +1,31 @@
+@model NestU.WebApp.Models.Auth.LoginModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card p-4">
+            <h1 class="h4 mb-3">Đăng nhập</h1>
+            <form asp-action="Login" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+                <input type="hidden" asp-for="ReturnUrl" />
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" autocomplete="username" />
+                    <span asp-validation-for="Email" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Password" class="form-label"></label>
+                    <input asp-for="Password" class="form-control" autocomplete="current-password" />
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
+            </form>
+            <p class="small text-secondary mt-3 mb-0">Chưa có tài khoản? <a asp-action="Register">Đăng ký</a></p>
+        </div>
+        <div class="card p-3 mt-3 small text-secondary">
+            <strong>Tài khoản demo</strong> (mật khẩu <code>NestU@123</code>):
+            admin@nestu.vn · chutro1@nestu.vn · chutro2@nestu.vn (chờ duyệt) · sinhvien1@nestu.vn · khach1@nestu.vn
+        </div>
+    </div>
+</div>

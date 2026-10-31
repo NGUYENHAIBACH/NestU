@@ -1,0 +1,102 @@
+@model NestU.WebApp.Models.Auth.RegisterModel
+@{
+    ViewData["Title"] = "Đăng ký";
+}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card p-4">
+            <h1 class="h4 mb-3">Tạo tài khoản</h1>
+            <form asp-action="Register" method="post" id="registerForm">
+                <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Role" class="form-label"></label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" asp-for="Role" value="Tenant" id="roleTenant" />
+                        <label class="btn btn-outline-dark" for="roleTenant"><i class="bi bi-person me-1"></i>Người thuê</label>
+                        <input type="radio" class="btn-check" asp-for="Role" value="Landlord" id="roleLandlord" />
+                        <label class="btn btn-outline-dark" for="roleLandlord"><i class="bi bi-building me-1"></i>Chủ trọ</label>
+                    </div>
+                    <div class="form-text" id="landlordNote" style="display:none">Hồ sơ chủ trọ cần quản trị viên duyệt trước khi đăng nhà trọ.</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="FullName" class="form-label"></label>
+                        <input asp-for="FullName" class="form-control" />
+                        <span asp-validation-for="FullName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" />
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Phone" class="form-label"></label>
+                        <input asp-for="Phone" class="form-control" inputmode="numeric" maxlength="10" />
+                        <span asp-validation-for="Phone" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="CitizenId" class="form-label"></label>
+                        <input asp-for="CitizenId" class="form-control" inputmode="numeric" maxlength="12" />
+                        <span asp-validation-for="CitizenId" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Password" class="form-label"></label>
+                        <input asp-for="Password" class="form-control" />
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="ConfirmPassword" class="form-label"></label>
+                        <input asp-for="ConfirmPassword" class="form-control" />
+                        <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div id="studentBlock">
+                    <div class="form-check mb-3">
+                        <input asp-for="IsStudent" class="form-check-input" />
+                        <label asp-for="IsStudent" class="form-check-label"></label>
+                    </div>
+                    <div class="row" id="studentFields" style="display:none">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="StudentCode" class="form-label"></label>
+                            <input asp-for="StudentCode" class="form-control" />
+                            <span asp-validation-for="StudentCode" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="UniversityId" class="form-label"></label>
+                            <select asp-for="UniversityId" asp-items="ViewBag.Universities" class="form-select">
+                                <option value="">-- Chọn trường --</option>
+                            </select>
+                            <span asp-validation-for="UniversityId" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Đăng ký</button>
+            </form>
+            <p class="small text-secondary mt-3 mb-0">Đã có tài khoản? <a asp-action="Login">Đăng nhập</a></p>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    (function () {
+        const isStudent = document.getElementById('IsStudent');
+        const fields = document.getElementById('studentFields');
+        const block = document.getElementById('studentBlock');
+        const note = document.getElementById('landlordNote');
+        const roles = document.querySelectorAll('input[name="Role"]');
+        function sync() {
+            const landlord = document.getElementById('roleLandlord').checked;
+            block.style.display = landlord ? 'none' : '';
+            note.style.display = landlord ? '' : 'none';
+            fields.style.display = (!landlord && isStudent.checked) ? '' : 'none';
+        }
+        isStudent.addEventListener('change', sync);
+        roles.forEach(r => r.addEventListener('change', sync));
+        sync();
+    })();
+</script>
+}
