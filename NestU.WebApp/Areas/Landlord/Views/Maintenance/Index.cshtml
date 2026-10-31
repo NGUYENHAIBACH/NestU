@@ -1,0 +1,27 @@
+@model List<NestU.WebApp.Models.Support.MaintenanceDto>
+@{ ViewData["Title"] = "Sự cố"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Sự cố &amp; sửa chữa</h1>
+    <div class="btn-group btn-group-sm">@foreach (var s in new[] { ("", "Tất cả"), ("Open", "Mới"), ("InProgress", "Đang xử lý"), ("Resolved", "Đã xong") }) { <a asp-action="Index" asp-route-status="@s.Item1" class="btn btn-outline-dark @(st == s.Item1 || (st is null && s.Item1 == "") ? "active" : "")">@s.Item2</a> }</div></div>
+<div class="card">
+@foreach (var m in Model)
+{
+    <div class="p-3 border-bottom">
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+            <div><strong>@m.Title</strong> <partial name="_StatusBadge" model="@m.Status" /><div class="small text-secondary">P.@m.RoomNumber · @m.HouseName · @m.TenantName · @m.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy") @(m.AssetName is null ? "" : $"· Tài sản: {m.AssetName}")</div><div class="small mt-1">@m.Description</div>
+                @if (m.ImageUrl is not null) { <a href="@(Config["ApiSettings:BaseUrl"]!.TrimEnd('/') + m.ImageUrl)" target="_blank" class="small">Xem ảnh</a> }
+                @if (m.ResolveNote is not null) { <div class="small text-success mt-1">Phản hồi: @m.ResolveNote</div> }</div>
+            @if (m.Status != "Resolved")
+            {
+                <form asp-action="UpdateStatus" method="post" class="d-flex gap-1 align-items-start flex-wrap" style="max-width: 420px">
+                    @Html.AntiForgeryToken()<input type="hidden" name="Id" value="@m.Id" />
+                    <select name="Status" class="form-select form-select-sm" style="width: 140px"><option value="InProgress" selected="@(m.Status == "Open")">Đang xử lý</option><option value="Resolved" selected="@(m.Status == "InProgress")">Đã xử lý</option></select>
+                    @if (m.RoomAssetId is not null) { <select name="AssetCondition" class="form-select form-select-sm" style="width: 130px"><option value="">TS: giữ nguyên</option><option value="Good">TS: Tốt</option><option value="Damaged">TS: Hư nhẹ</option><option value="Broken">TS: Hỏng</option></select> }
+                    <input name="Note" class="form-control form-control-sm" placeholder="Ghi chú" style="width: 160px" />
+                    <button class="btn btn-primary btn-sm">Cập nhật</button>
+                </form>
+            }
+        </div>
+    </div>
+}
+@if (Model.Count == 0) { <div class="p-4 text-center text-secondary">Không có sự cố.</div> }
+</div>
