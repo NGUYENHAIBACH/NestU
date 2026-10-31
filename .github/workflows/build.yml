@@ -8,29 +8,36 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: "Y"
-          MSSQL_SA_PASSWORD: "NestU_Str0ng!Pass"
-        ports: ["1433:1433"]
-        options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P NestU_Str0ng!Pass -C -Q 'SELECT 1' || exit 1"
-          --health-interval 10s --health-timeout 5s --health-retries 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Start SQL Server
+        run: |
+          docker run -d --name sql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='NestU_Str0ng!Pass' -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+          for i in $(seq 1 40); do
+            docker exec sql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'NestU_Str0ng!Pass' -C -Q 'SELECT 1' >/dev/null 2>&1 && echo "SQL Server ready" && break
+            sleep 3
+          done
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
       - name: Build NestU.API
-        run: dotnet build NestU.API/NestU.API.csproj -c Debug --nologo -warnaserror- 2>&1 | tee build-api.log
+        id: build_api
+        run: |
+          set -o pipefail
+          dotnet build NestU.API/NestU.API.csproj -c Debug --nologo 2>&1 | tee build-api.log
 
       - name: Build NestU.WebApp
-        run: dotnet build NestU.WebApp/NestU.WebApp.csproj -c Debug --nologo 2>&1 | tee build-web.log
+        id: build_web
+        if: always()
+        run: |
+          set -o pipefail
+          dotnet build NestU.WebApp/NestU.WebApp.csproj -c Debug --nologo 2>&1 | tee build-web.log
 
       - name: Migration + smoke test API
+        if: steps.build_api.outcome == 'success'
         env:
           ASPNETCORE_ENVIRONMENT: Development
           ASPNETCORE_URLS: http://localhost:5001
@@ -97,7 +104,7 @@ jobs:
           tail -40 api-run.log | tee -a smoke.log
 
       - name: Smoke test WebApp (render pages)
-        if: always()
+        if: steps.build_api.outcome == 'success' && steps.build_web.outcome == 'success'
         env:
           ASPNETCORE_ENVIRONMENT: Development
           ASPNETCORE_URLS: http://localhost:5002
@@ -112,10 +119,14 @@ jobs:
           done | tee web-smoke.log
           echo "== WebApp log tail =="; tail -30 web-run.log
 
-      - name: Upload logs
+      - name: Publish logs to branch ci-logs
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs
-          path: |
-            *.log
+        run: |
+          mkdir -p /tmp/logs && cp *.log /tmp/logs/ 2>/dev/null || true
+          { echo "run: ${{ github.run_id }}  sha: ${{ github.sha }}"; echo "build_api: ${{ steps.build_api.outcome }}"; echo "build_web: ${{ steps.build_web.outcome }}"; } > /tmp/logs/SUMMARY.txt
+          grep -hE "error (CS|RZ|MSB|NU)[0-9]+" /tmp/logs/build-*.log | sed 's/\[.*//' | sort -u > /tmp/logs/ERRORS.txt || true
+          git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin ci-logs 2>/dev/null && git checkout -q ci-logs || git checkout -q --orphan ci-logs
+          git rm -rfq . 2>/dev/null || true
+          cp /tmp/logs/* .
+          git add -A && git commit -qm "CI logs for ${{ github.sha }}" && git push -q -f origin ci-logs
