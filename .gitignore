@@ -6,8 +6,10 @@ obj/
 .vs/
 *.rsuser
 appsettings.*.local.json
-## Uploads lúc chạy
-**/wwwroot/uploads/
+## Uploads lúc chạy (giữ lại .gitkeep và thư mục seed)
+**/wwwroot/uploads/*
+!**/wwwroot/uploads/.gitkeep
+!**/wwwroot/uploads/seed/
 ## OS / IDE
 .DS_Store
 Thumbs.db
