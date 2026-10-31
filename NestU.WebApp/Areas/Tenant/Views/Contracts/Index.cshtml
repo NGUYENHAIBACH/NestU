@@ -1,0 +1,29 @@
+@model List<NestU.WebApp.Models.Rentals.ContractDto>
+@{ ViewData["Title"] = "Hợp đồng"; List<NestU.WebApp.Models.Rentals.ContractChangeRequestDto> changes = ViewBag.ChangeRequests; }
+<h1 class="h4 mb-3">Hợp đồng của tôi</h1>
+<div class="card mb-3">
+    <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light"><tr><th>Phòng</th><th>Thời hạn</th><th>Tiền phòng</th><th>Tiền cọc</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var c in Model)
+        {
+            <tr>
+                <td>Phòng @c.RoomNumber<div class="small text-secondary">@c.HouseName</div></td>
+                <td>@c.StartDate.ToString("dd/MM/yyyy") → @c.EndDate.ToString("dd/MM/yyyy")</td>
+                <td>@c.MonthlyRent.ToString("N0")đ</td><td>@c.DepositAmount.ToString("N0")đ</td>
+                <td><partial name="_StatusBadge" model="@(c.DisplayStatus == "Expired" ? "Overdue" : c.Status)" />@if (c.DisplayStatus == "Expired") { <div class="small text-danger">Đã hết hạn</div> }</td>
+                <td class="text-end"><a asp-action="Details" asp-route-id="@c.Id" class="btn btn-outline-dark btn-sm">Chi tiết</a></td>
+            </tr>
+        }
+        @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Bạn chưa có hợp đồng nào.</td></tr> }
+        </tbody>
+    </table>
+</div>
+@if (changes.Count > 0)
+{
+    <h2 class="h6">Yêu cầu gia hạn / trả phòng</h2>
+    <div class="card"><table class="table mb-0 align-middle small">
+        <thead class="table-light"><tr><th>Phòng</th><th>Loại</th><th>Ngày mới</th><th>Lý do</th><th>Trạng thái</th></tr></thead>
+        <tbody>@foreach (var x in changes) { <tr><td>@x.RoomNumber · @x.HouseName</td><td>@(x.Type == "Renew" ? "Gia hạn" : "Trả phòng")</td><td>@x.NewEndDate?.ToString("dd/MM/yyyy")</td><td>@x.Reason</td><td><partial name="_StatusBadge" model="@x.Status" />@if (x.DecisionNote is not null) { <div class="text-secondary">@x.DecisionNote</div> }</td></tr> }</tbody>
+    </table></div>
+}

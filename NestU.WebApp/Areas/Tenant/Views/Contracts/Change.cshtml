@@ -1,0 +1,14 @@
+@model NestU.WebApp.Models.Rentals.CreateContractChangeDto
+@{ var renew = Model.Type == "Renew"; ViewData["Title"] = renew ? "Xin gia hạn" : "Xin trả phòng"; }
+<div class="card p-4" style="max-width: 560px">
+    <h1 class="h4 mb-3">@ViewData["Title"]</h1>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="ContractId" /><input type="hidden" asp-for="Type" />
+        @if (renew) { <div class="mb-3"><label asp-for="NewEndDate" class="form-label"></label><input asp-for="NewEndDate" class="form-control" /><span asp-validation-for="NewEndDate" class="text-danger small"></span></div> }
+        else { <div class="alert alert-warning small">Sau khi chủ trọ đồng ý, hai bên kiểm tra tài sản và quyết toán tiền cọc. Hợp đồng kết thúc khi quyết toán xong.</div> }
+        <div class="mb-3"><label asp-for="Reason" class="form-label"></label><textarea asp-for="Reason" class="form-control" rows="3"></textarea><span asp-validation-for="Reason" class="text-danger small"></span></div>
+        <button class="btn @(renew ? "btn-primary" : "btn-danger")">Gửi yêu cầu</button>
+        <a asp-action="Details" asp-route-id="@Model.ContractId" class="btn btn-link">Quay lại</a>
+    </form>
+</div>
