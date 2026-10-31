@@ -1,0 +1,27 @@
+@using System.Security.Claims
+@if (User.Identity?.IsAuthenticated == true)
+{
+    var role = User.FindFirst(ClaimTypes.Role)?.Value switch
+    {
+        "Admin" => "Quản trị viên",
+        "Landlord" => "Chủ trọ",
+        "Tenant" => "Người thuê",
+        _ => ""
+    };
+    <div class="d-flex align-items-center gap-3">
+        <span class="small text-secondary d-none d-md-inline">
+            <i class="bi bi-person-circle me-1"></i>@User.Identity.Name <span class="badge text-bg-light border ms-1">@role</span>
+        </span>
+        <form asp-area="" asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-dark btn-sm">Đăng xuất</button>
+        </form>
+    </div>
+}
+else
+{
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-dark btn-sm" asp-area="" asp-controller="Account" asp-action="Register">Đăng ký</a>
+        <a class="btn btn-primary btn-sm" asp-area="" asp-controller="Account" asp-action="Login">Đăng nhập</a>
+    </div>
+}

@@ -1,0 +1,29 @@
+@model string
+@{
+    var (text, cls) = Model switch
+    {
+        "Pending" => ("Chờ duyệt", "text-bg-warning"),
+        "Approved" => ("Đã duyệt", "text-bg-success"),
+        "Rejected" => ("Từ chối", "text-bg-danger"),
+        "Active" => ("Đang hoạt động", "text-bg-success"),
+        "Available" => ("Còn phòng", "text-bg-success"),
+        "Occupied" => ("Hết phòng", "text-bg-secondary"),
+        "Maintenance" => ("Đang sửa", "text-bg-warning"),
+        "Confirmed" => ("Đã xác nhận", "text-bg-success"),
+        "Cancelled" => ("Đã hủy", "text-bg-secondary"),
+        "Terminated" => ("Đã kết thúc", "text-bg-secondary"),
+        "Unpaid" => ("Chưa thanh toán", "text-bg-warning"),
+        "PendingConfirm" => ("Chờ xác nhận", "text-bg-info"),
+        "Paid" => ("Đã thanh toán", "text-bg-success"),
+        "Overdue" => ("Quá hạn", "text-bg-danger"),
+        "Open" => ("Mới", "text-bg-warning"),
+        "InProgress" => ("Đang xử lý", "text-bg-info"),
+        "Resolved" => ("Đã xử lý", "text-bg-success"),
+        "Dismissed" => ("Bác bỏ", "text-bg-secondary"),
+        "Good" => ("Tốt", "text-bg-success"),
+        "Damaged" => ("Hư nhẹ", "text-bg-warning"),
+        "Broken" => ("Hỏng", "text-bg-danger"),
+        _ => (Model, "text-bg-light border")
+    };
+}
+<span class="badge rounded-pill @cls">@text</span>
