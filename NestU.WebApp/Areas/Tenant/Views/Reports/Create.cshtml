@@ -1,0 +1,15 @@
+@model NestU.WebApp.Models.Support.CreateReportDto
+@{ ViewData["Title"] = "Gửi khiếu nại"; }
+<div class="card p-4" style="max-width: 640px">
+    <h1 class="h4 mb-3">Gửi khiếu nại</h1>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <div class="row">
+            <div class="col-md-5 mb-3"><label asp-for="TargetType" class="form-label"></label>
+                <select asp-for="TargetType" class="form-select"><option value="Room">Phòng / tin đăng</option><option value="House">Nhà trọ</option><option value="Landlord">Chủ trọ</option></select></div>
+            <div class="col-md-7 mb-3"><label class="form-label">Mã đối tượng</label><input asp-for="TargetId" type="number" class="form-control" /><div class="form-text">@(Model.TargetLabel ?? "Lấy từ trang chi tiết phòng (nút Khiếu nại) để tự điền.")</div><span asp-validation-for="TargetId" class="text-danger small"></span></div>
+        </div>
+        <div class="mb-3"><label asp-for="Reason" class="form-label"></label><textarea asp-for="Reason" class="form-control" rows="5" placeholder="Ví dụ: chủ trọ thu giá điện 5.000đ/kWh, cao hơn mức tối đa 4.000đ..."></textarea><span asp-validation-for="Reason" class="text-danger small"></span></div>
+        <button class="btn btn-primary">Gửi</button><a asp-action="Index" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

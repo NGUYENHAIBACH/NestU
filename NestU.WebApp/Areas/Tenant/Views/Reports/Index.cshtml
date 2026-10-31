@@ -1,0 +1,7 @@
+@model List<NestU.WebApp.Models.Support.ReportDto>
+@{ ViewData["Title"] = "Khiếu nại"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Khiếu nại của tôi</h1><a asp-action="Create" class="btn btn-primary btn-sm">Gửi khiếu nại</a></div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Đối tượng</th><th>Nội dung</th><th>Ngày</th><th>Trạng thái</th><th>Kết quả</th></tr></thead>
+    <tbody>@foreach (var r in Model) { <tr><td>@r.TargetName</td><td class="small">@r.Reason</td><td>@r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td><td><partial name="_StatusBadge" model="@r.Status" /></td><td class="small">@r.ResolveNote</td></tr> }
+    @if (Model.Count == 0) { <tr><td colspan="5" class="text-center text-secondary py-4">Chưa có khiếu nại.</td></tr> }</tbody></table></div>

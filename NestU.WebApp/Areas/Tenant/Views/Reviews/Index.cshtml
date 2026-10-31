@@ -1,0 +1,13 @@
+@model List<NestU.WebApp.Models.Support.ReviewDto>
+@{ ViewData["Title"] = "Đánh giá"; List<NestU.WebApp.Models.Rentals.ContractDto> reviewable = ViewBag.Reviewable; }
+<h1 class="h4 mb-3">Đánh giá của tôi</h1>
+@if (reviewable.Count > 0)
+{
+    <div class="card p-3 mb-3"><h2 class="h6">Phòng bạn có thể đánh giá</h2>
+        @foreach (var c in reviewable) { <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2"><span>Phòng @c.RoomNumber · @c.HouseName</span><a asp-action="Create" asp-route-contractId="@c.Id" class="btn btn-outline-dark btn-sm">Đánh giá</a></div> }
+    </div>
+}
+<div class="card">
+    @foreach (var r in Model) { <div class="p-3 border-bottom"><div class="d-flex justify-content-between"><strong>Phòng @r.RoomNumber</strong><span class="text-warning">@for (var i = 0; i < r.Rating; i++) { <i class="bi bi-star-fill"></i> }</span></div><div>@r.Comment</div><div class="small text-secondary">@r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</div></div> }
+    @if (Model.Count == 0) { <div class="p-4 text-center text-secondary">Bạn chưa đánh giá phòng nào.</div> }
+</div>

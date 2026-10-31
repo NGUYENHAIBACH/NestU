@@ -1,0 +1,15 @@
+@model NestU.WebApp.Models.Support.CreateMaintenanceDto
+@{ ViewData["Title"] = "Báo sự cố"; }
+<div class="card p-4" style="max-width: 640px">
+    <h1 class="h4 mb-1">Báo sự cố</h1>
+    <p class="text-secondary">@ViewBag.ContractLabel</p>
+    <form method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="ContractId" />
+        <div class="mb-3"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="RoomAssetId" class="form-label"></label><select asp-for="RoomAssetId" asp-items="ViewBag.Assets" class="form-select"><option value="">-- Không liên quan tài sản --</option></select></div>
+        <div class="mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="4"></textarea><span asp-validation-for="Description" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="Image" class="form-label"></label><input asp-for="Image" type="file" accept="image/*" class="form-control" /></div>
+        <button class="btn btn-primary">Gửi</button><a asp-action="Index" class="btn btn-link">Quay lại</a>
+    </form>
+</div>

@@ -1,0 +1,13 @@
+@model NestU.WebApp.Models.Support.CreateReviewDto
+@{ ViewData["Title"] = "Đánh giá phòng"; }
+<div class="card p-4" style="max-width: 560px">
+    <h1 class="h4 mb-1">Đánh giá phòng</h1><p class="text-secondary">@Model.RoomLabel</p>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="ContractId" /><input type="hidden" asp-for="RoomLabel" />
+        <div class="mb-3"><label asp-for="Rating" class="form-label"></label>
+            <select asp-for="Rating" class="form-select"><option value="5">5 - Rất hài lòng</option><option value="4">4 - Hài lòng</option><option value="3">3 - Bình thường</option><option value="2">2 - Không hài lòng</option><option value="1">1 - Rất tệ</option></select></div>
+        <div class="mb-3"><label asp-for="Comment" class="form-label"></label><textarea asp-for="Comment" class="form-control" rows="4"></textarea><span asp-validation-for="Comment" class="text-danger small"></span></div>
+        <button class="btn btn-primary">Gửi đánh giá</button><a asp-action="Index" class="btn btn-link">Quay lại</a>
+    </form>
+</div>
