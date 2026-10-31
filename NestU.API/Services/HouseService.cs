@@ -1,0 +1,198 @@
+using Microsoft.EntityFrameworkCore;
+using NestU.API.Data;
+using NestU.API.DTOs.Houses;
+using NestU.API.Entities;
+using NestU.API.Entities.Enums;
+using NestU.API.Helpers;
+using NestU.API.Services.Interfaces;
+
+namespace NestU.API.Services;
+
+public class HouseService : IHouseService
+{
+    private readonly NestUDbContext _db;
+    private readonly IFileStorage _files;
+
+    public HouseService(NestUDbContext db, IFileStorage files)
+    {
+        _db = db;
+        _files = files;
+    }
+
+    public async Task<BoardingHouse> GetOwnedHouseAsync(string landlordId, int houseId, bool track = false)
+    {
+        var q = track ? _db.BoardingHouses : _db.BoardingHouses.AsNoTracking();
+        var house = await q.FirstOrDefaultAsync(h => h.Id == houseId) ?? throw ApiException.NotFound("Không tìm thấy nhà trọ.");
+        if (house.LandlordId != landlordId) throw ApiException.Forbidden("Nhà trọ này không thuộc quyền quản lý của bạn.");
+        return house;
+    }
+
+    private static async Task<List<HouseDto>> ProjectAsync(IQueryable<BoardingHouse> q)
+    {
+        // Enum không translate được ToString() trong SQL → lấy enum ra rồi map trong bộ nhớ
+        var rows = await q.Select(h => new
+        {
+            h.Id, h.Name, h.Address, h.AreaId, AreaName = h.Area.Name, h.Latitude, h.Longitude, h.TotalFloors, h.Status,
+            h.ElectricityPrice, h.WaterPrice, h.WaterBillingType, h.AllowedTenantType, h.Description, h.BankCode, h.BankAccount, h.AccountName,
+            RoomCount = h.Rooms.Count, AvailableRoomCount = h.Rooms.Count(r => r.Status == RoomStatus.Available),
+            CertStatus = h.Certificates.OrderByDescending(c => c.UploadedAt).Select(c => (CertificateStatus?)c.Status).FirstOrDefault(),
+            CertNote = h.Certificates.OrderByDescending(c => c.UploadedAt).Select(c => c.ReviewNote).FirstOrDefault(),
+            h.CreatedAt
+        }).ToListAsync();
+
+        return rows.Select(h => new HouseDto
+        {
+            Id = h.Id, Name = h.Name, Address = h.Address, AreaId = h.AreaId, AreaName = h.AreaName,
+            Latitude = h.Latitude, Longitude = h.Longitude, TotalFloors = h.TotalFloors, Status = h.Status.ToString(),
+            ElectricityPrice = h.ElectricityPrice, WaterPrice = h.WaterPrice, WaterBillingType = h.WaterBillingType.ToString(),
+            AllowedTenantType = h.AllowedTenantType.ToString(), Description = h.Description,
+            BankCode = h.BankCode, BankAccount = h.BankAccount, AccountName = h.AccountName,
+            RoomCount = h.RoomCount, AvailableRoomCount = h.AvailableRoomCount,
+            CertificateStatus = h.CertStatus?.ToString(), CertificateNote = h.CertNote, CreatedAt = h.CreatedAt
+        }).ToList();
+    }
+
+    public Task<List<HouseDto>> GetMineAsync(string landlordId) =>
+        ProjectAsync(_db.BoardingHouses.AsNoTracking().Where(h => h.LandlordId == landlordId).OrderByDescending(h => h.CreatedAt));
+
+    public async Task<HouseDto> GetMineByIdAsync(string landlordId, int id)
+    {
+        await GetOwnedHouseAsync(landlordId, id);
+        return (await ProjectAsync(_db.BoardingHouses.AsNoTracking().Where(h => h.Id == id))).First();
+    }
+
+    public async Task<HouseDto> CreateAsync(string landlordId, CreateHouseDto dto)
+    {
+        if (!await _db.Areas.AnyAsync(a => a.Id == dto.AreaId)) throw ApiException.BadRequest("Khu vực không tồn tại.");
+        var house = new BoardingHouse { LandlordId = landlordId, Status = HouseStatus.Pending };
+        Apply(house, dto);
+        _db.BoardingHouses.Add(house);
+        await _db.SaveChangesAsync();
+        return await GetMineByIdAsync(landlordId, house.Id);
+    }
+
+    public async Task UpdateAsync(string landlordId, int id, UpdateHouseDto dto)
+    {
+        var house = await GetOwnedHouseAsync(landlordId, id, track: true);
+        if (!await _db.Areas.AnyAsync(a => a.Id == dto.AreaId)) throw ApiException.BadRequest("Khu vực không tồn tại.");
+
+        var maxFloor = await _db.Rooms.Where(r => r.BoardingHouseId == id).Select(r => (int?)r.Floor).MaxAsync() ?? 0;
+        if (dto.TotalFloors < maxFloor)
+            throw ApiException.BadRequest($"Không thể giảm số tầng xuống {dto.TotalFloors} vì đang có phòng ở tầng {maxFloor}.");
+
+        Apply(house, dto);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(string landlordId, int id)
+    {
+        var house = await GetOwnedHouseAsync(landlordId, id, track: true);
+        var hasActive = await _db.Contracts.AnyAsync(c => c.Room.BoardingHouseId == id && c.Status == ContractStatus.Active);
+        if (hasActive) throw ApiException.Conflict("Nhà trọ đang có hợp đồng hiệu lực, không thể xóa.");
+        if (await _db.Rooms.AnyAsync(r => r.BoardingHouseId == id))
+            throw ApiException.Conflict("Hãy xóa hết phòng trước khi xóa nhà trọ.");
+        _db.BoardingHouses.Remove(house);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<FloorSummaryDto>> GetFloorsAsync(string landlordId, int houseId)
+    {
+        var house = await GetOwnedHouseAsync(landlordId, houseId);
+        var grouped = await _db.Rooms.AsNoTracking().Where(r => r.BoardingHouseId == houseId)
+            .GroupBy(r => r.Floor)
+            .Select(g => new FloorSummaryDto
+            {
+                Floor = g.Key, TotalRooms = g.Count(),
+                Available = g.Count(r => r.Status == RoomStatus.Available),
+                Occupied = g.Count(r => r.Status == RoomStatus.Occupied),
+                Maintenance = g.Count(r => r.Status == RoomStatus.Maintenance)
+            }).ToListAsync();
+        // Tầng chưa có phòng vẫn hiện để chủ trọ tạo phòng
+        return Enumerable.Range(1, house.TotalFloors)
+            .Select(f => grouped.FirstOrDefault(g => g.Floor == f) ?? new FloorSummaryDto { Floor = f })
+            .ToList();
+    }
+
+    // ----- Giấy PCCC -----
+    public async Task<List<CertificateDto>> GetCertificatesAsync(string landlordId, int houseId)
+    {
+        await GetOwnedHouseAsync(landlordId, houseId);
+        return await ProjectCertAsync(_db.FireSafetyCertificates.AsNoTracking().Where(c => c.BoardingHouseId == houseId)
+            .OrderByDescending(c => c.UploadedAt));
+    }
+
+    public async Task<CertificateDto> UploadCertificateAsync(string landlordId, int houseId, CreateCertificateDto dto)
+    {
+        var house = await GetOwnedHouseAsync(landlordId, houseId, track: true);
+        if (await _db.FireSafetyCertificates.AnyAsync(c => c.BoardingHouseId == houseId && c.Status == CertificateStatus.Pending))
+            throw ApiException.Conflict("Đang có giấy PCCC chờ duyệt, vui lòng đợi kết quả.");
+
+        var url = await _files.SaveAsync(dto.File, "certificates");
+        var cert = new FireSafetyCertificate { BoardingHouseId = houseId, CertificateNo = dto.CertificateNo.Trim(), FileUrl = url };
+        _db.FireSafetyCertificates.Add(cert);
+        if (house.Status == HouseStatus.Rejected) house.Status = HouseStatus.Pending; // nộp lại sau khi bị từ chối
+        await _db.SaveChangesAsync();
+        return (await ProjectCertAsync(_db.FireSafetyCertificates.AsNoTracking().Where(c => c.Id == cert.Id))).First();
+    }
+
+    public static async Task<List<CertificateDto>> ProjectCertAsync(IQueryable<FireSafetyCertificate> q)
+    {
+        var rows = await q.Include(c => c.BoardingHouse).ThenInclude(h => h.Landlord).ToListAsync();
+        return rows.Select(c => new CertificateDto
+        {
+            Id = c.Id, BoardingHouseId = c.BoardingHouseId, HouseName = c.BoardingHouse.Name,
+            LandlordName = c.BoardingHouse.Landlord.FullName, CertificateNo = c.CertificateNo, FileUrl = c.FileUrl,
+            Status = c.Status.ToString(), ReviewNote = c.ReviewNote, UploadedAt = c.UploadedAt, ReviewedAt = c.ReviewedAt
+        }).ToList();
+    }
+
+    // ----- Dịch vụ -----
+    public async Task<List<ServiceDto>> GetServicesAsync(string landlordId, int? houseId)
+    {
+        var q = _db.Services.AsNoTracking().Where(s => s.BoardingHouse.LandlordId == landlordId);
+        if (houseId is not null) q = q.Where(s => s.BoardingHouseId == houseId);
+        var rows = await q.OrderBy(s => s.BoardingHouseId).ThenBy(s => s.Name).ToListAsync();
+        return rows.Select(s => new ServiceDto
+        {
+            Id = s.Id, BoardingHouseId = s.BoardingHouseId, Name = s.Name, Price = s.Price, Unit = s.Unit.ToString(), IsActive = s.IsActive
+        }).ToList();
+    }
+
+    public async Task<ServiceDto> CreateServiceAsync(string landlordId, ServiceDto dto)
+    {
+        await GetOwnedHouseAsync(landlordId, dto.BoardingHouseId);
+        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = dto.Name.Trim(), Price = dto.Price, Unit = Enum.Parse<ServiceUnit>(dto.Unit), IsActive = dto.IsActive };
+        _db.Services.Add(s);
+        await _db.SaveChangesAsync();
+        dto.Id = s.Id;
+        return dto;
+    }
+
+    public async Task UpdateServiceAsync(string landlordId, int id, ServiceDto dto)
+    {
+        var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
+        if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
+        s.Name = dto.Name.Trim(); s.Price = dto.Price; s.Unit = Enum.Parse<ServiceUnit>(dto.Unit); s.IsActive = dto.IsActive;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task DeleteServiceAsync(string landlordId, int id)
+    {
+        var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
+        if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
+        if (await _db.ContractServices.AnyAsync(cs => cs.ServiceId == id && cs.Contract.Status == ContractStatus.Active))
+            throw ApiException.Conflict("Dịch vụ đang được hợp đồng hiệu lực sử dụng. Hãy tắt (IsActive = false) thay vì xóa.");
+        _db.Services.Remove(s);
+        await _db.SaveChangesAsync();
+    }
+
+    private static void Apply(BoardingHouse h, CreateHouseDto d)
+    {
+        h.Name = d.Name.Trim(); h.Address = d.Address.Trim(); h.AreaId = d.AreaId;
+        h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;
+        h.ElectricityPrice = d.ElectricityPrice; h.WaterPrice = d.WaterPrice;
+        h.WaterBillingType = Enum.Parse<WaterBillingType>(d.WaterBillingType);
+        h.AllowedTenantType = Enum.Parse<AllowedTenantType>(d.AllowedTenantType);
+        h.Description = d.Description; h.BankCode = d.BankCode; h.BankAccount = d.BankAccount; h.AccountName = d.AccountName;
+    }
+}
