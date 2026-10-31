@@ -1,0 +1,23 @@
+@{
+    ViewData["Title"] = "Trang người thuê";
+    NestU.WebApp.Models.Rentals.ContractDto? active = ViewBag.Active;
+    List<NestU.WebApp.Models.Billing.InvoiceDto> unpaid = ViewBag.UnpaidInvoices;
+    int pending = ViewBag.PendingRequests;
+}
+<h1 class="h4 mb-3">Xin chào, @User.Identity?.Name</h1>
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card p-3 h-100"><div class="small text-secondary">Hợp đồng hiện tại</div>
+        @if (active is null) { <div class="fw-semibold">Chưa thuê phòng</div><a asp-area="" asp-controller="Rooms" asp-action="Index" class="small">Tìm phòng →</a> }
+        else { <div class="fw-semibold">Phòng @active.RoomNumber · @active.HouseName</div><div class="small text-secondary">đến @active.EndDate.ToString("dd/MM/yyyy")</div><a asp-controller="Contracts" asp-action="Details" asp-route-id="@active.Id" class="small">Chi tiết →</a> }
+    </div></div>
+    <div class="col-md-4"><div class="card p-3 h-100"><div class="small text-secondary">Hóa đơn chưa thanh toán</div><div class="h3 mb-0 @(unpaid.Count > 0 ? "text-danger" : "")">@unpaid.Count</div><a asp-controller="Invoices" asp-action="Index" class="small">Xem hóa đơn →</a></div></div>
+    <div class="col-md-4"><div class="card p-3 h-100"><div class="small text-secondary">Yêu cầu thuê đang chờ</div><div class="h3 mb-0">@pending</div><a asp-controller="RentalRequests" asp-action="Index" class="small">Theo dõi →</a></div></div>
+</div>
+@if (active is not null && !active.CheckInConfirmed)
+{
+    <div class="alert alert-warning"><i class="bi bi-clipboard-check me-2"></i>Bạn có <strong>biên bản bàn giao tài sản</strong> chờ xác nhận. <a asp-controller="Contracts" asp-action="Details" asp-route-id="@active.Id" asp-route-tab="assets">Xem và xác nhận</a>.</div>
+}
+@foreach (var i in unpaid.Where(x => x.DisplayStatus == "Overdue"))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-circle me-2"></i>Hóa đơn tháng @i.Month/@i.Year đã <strong>quá hạn</strong> (@i.Total.ToString("N0")đ). <a asp-controller="Invoices" asp-action="Details" asp-route-id="@i.Id">Thanh toán ngay</a>.</div>
+}

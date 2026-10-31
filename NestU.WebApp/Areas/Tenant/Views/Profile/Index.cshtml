@@ -1,0 +1,27 @@
+@model NestU.WebApp.Models.Rentals.TenantProfileDto
+@{ ViewData["Title"] = "Hồ sơ người thuê"; }
+<div class="card p-4">
+    <h1 class="h4 mb-3">Hồ sơ người thuê</h1>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="UserId" />
+        <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Email</label><input class="form-control" value="@Model.Email" disabled /></div>
+            <div class="col-md-6 mb-3"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /><span asp-validation-for="Phone" class="text-danger small"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="CitizenId" class="form-label"></label><input asp-for="CitizenId" class="form-control" /><span asp-validation-for="CitizenId" class="text-danger small"></span></div>
+        </div>
+        <div class="form-check mb-3"><input asp-for="IsStudent" class="form-check-input" /><label asp-for="IsStudent" class="form-check-label"></label></div>
+        <div class="row" id="studentFields">
+            <div class="col-md-6 mb-3"><label asp-for="StudentCode" class="form-label"></label><input asp-for="StudentCode" class="form-control" /><span asp-validation-for="StudentCode" class="text-danger small"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="UniversityId" class="form-label"></label><select asp-for="UniversityId" asp-items="ViewBag.Universities" class="form-select"><option value="">-- Chọn trường --</option></select><span asp-validation-for="UniversityId" class="text-danger small"></span></div>
+        </div>
+        <button class="btn btn-primary">Lưu thay đổi</button>
+    </form>
+</div>
+@section Scripts {
+<script>
+    const cb = document.getElementById('IsStudent'), f = document.getElementById('studentFields');
+    const sync = () => f.style.display = cb.checked ? '' : 'none'; cb.addEventListener('change', sync); sync();
+</script>
+}
