@@ -1,0 +1,27 @@
+@model List<NestU.WebApp.Models.Rentals.RentalRequestDto>
+@{ ViewData["Title"] = "Yêu cầu thuê"; string? st = ViewBag.Status; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Yêu cầu thuê</h1>
+    <div class="btn-group btn-group-sm">@foreach (var s in new[] { ("", "Tất cả"), ("Pending", "Chờ duyệt"), ("Approved", "Đã duyệt"), ("Rejected", "Từ chối") }) { <a asp-action="Index" asp-route-status="@s.Item1" class="btn btn-outline-dark @(st == s.Item1 || (st is null && s.Item1 == "") ? "active" : "")">@s.Item2</a> }</div></div>
+<div class="card"><table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Phòng</th><th>Người thuê</th><th>Dọn vào</th><th>Thời hạn</th><th>Số người</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var r in Model)
+    {
+        <tr>
+            <td>P.@r.RoomNumber<div class="small text-secondary">@r.HouseName · @r.Price.ToString("N0")đ</div></td>
+            <td>@r.TenantName @(r.TenantIsStudent ? "🎓" : "")<div class="small text-secondary">@r.TenantPhone</div></td>
+            <td>@r.MoveInDate.ToString("dd/MM/yyyy")</td><td>@r.DurationMonths tháng</td><td>@r.NumberOfOccupants/@r.Capacity</td>
+            <td><partial name="_StatusBadge" model="@r.Status" />@if (r.RejectReason is not null) { <div class="small text-secondary">@r.RejectReason</div> }</td>
+            <td class="text-end text-nowrap">
+            @if (r.Status == "Pending")
+            {
+                <a asp-action="Approve" asp-route-id="@r.Id" class="btn btn-primary btn-sm">Duyệt &amp; lập HĐ</a>
+                <button class="btn btn-outline-danger btn-sm" data-bs-toggle="collapse" data-bs-target="#rej@(r.Id)">Từ chối</button>
+                <form asp-action="Reject" asp-route-id="@r.Id" method="post" class="collapse mt-2" id="rej@(r.Id)">@Html.AntiForgeryToken()<div class="input-group input-group-sm"><input name="reason" class="form-control" placeholder="Lý do" required /><button class="btn btn-danger">Gửi</button></div></form>
+            }
+            @if (r.ContractId is not null) { <a asp-controller="Contracts" asp-action="Details" asp-route-id="@r.ContractId" class="btn btn-outline-dark btn-sm">Hợp đồng</a> }
+            </td>
+        </tr>
+    }
+    @if (Model.Count == 0) { <tr><td colspan="7" class="text-center text-secondary py-4">Không có yêu cầu.</td></tr> }
+    </tbody></table></div>

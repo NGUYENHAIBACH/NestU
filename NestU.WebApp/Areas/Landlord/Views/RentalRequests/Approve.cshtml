@@ -1,0 +1,32 @@
+@model NestU.WebApp.Models.Rentals.ApproveRentalDto
+@{ ViewData["Title"] = "Duyệt yêu cầu thuê"; var r = Model.Request; }
+<div class="card p-4">
+    <h1 class="h4 mb-1">Duyệt yêu cầu thuê &amp; lập hợp đồng</h1>
+    @if (r is not null) { <p class="text-secondary">Phòng @r.RoomNumber · @r.HouseName · @r.TenantName (@r.TenantPhone) · @r.NumberOfOccupants người · @r.Price.ToString("N0")đ/tháng</p> }
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+        <input type="hidden" asp-for="RequestId" />
+        <div class="row">
+            <div class="col-md-4 mb-3"><label asp-for="StartDate" class="form-label"></label><input asp-for="StartDate" class="form-control" /></div>
+            <div class="col-md-4 mb-3"><label asp-for="DurationMonths" class="form-label"></label><input asp-for="DurationMonths" type="number" min="1" max="36" class="form-control" /></div>
+            <div class="col-md-4 mb-3"><label asp-for="DepositAmount" class="form-label"></label><input asp-for="DepositAmount" type="number" step="100000" class="form-control" /></div>
+        </div>
+        <div class="form-check mb-3"><input asp-for="DepositPaid" class="form-check-input" /><label asp-for="DepositPaid" class="form-check-label"></label> <span class="small text-secondary">(tiền cọc nhận ngoài hệ thống, ghi nhận vào hợp đồng)</span></div>
+        @if (Model.AvailableServices.Count > 0)
+        {
+            <div class="mb-3"><label class="form-label">Dịch vụ đăng ký</label><div class="d-flex flex-wrap gap-3">
+                @foreach (var s in Model.AvailableServices) { <div class="form-check"><input type="checkbox" name="ServiceIds" value="@s.Id" class="form-check-input" id="sv@(s.Id)" @(Model.ServiceIds.Contains(s.Id) ? "checked" : "") /><label class="form-check-label" for="sv@(s.Id)">@s.Name (@s.Price.ToString("N0")đ/@(s.Unit == "PerPerson" ? "người" : "tháng"))</label></div> }
+            </div></div>
+        }
+        <label class="form-label">Người ở cùng (không tính người đứng tên)</label>
+        <table class="table table-sm"><thead class="table-light"><tr><th>Họ tên</th><th>CCCD</th><th>Điện thoại</th></tr></thead><tbody>
+        @for (var i = 0; i < Math.Max(Model.Members.Count, 1); i++)
+        {
+            var m = i < Model.Members.Count ? Model.Members[i] : new NestU.WebApp.Models.Rentals.ContractMemberDto();
+            <tr><td><input name="Members[@i].FullName" value="@m.FullName" class="form-control form-control-sm" /></td><td><input name="Members[@i].CitizenId" value="@m.CitizenId" class="form-control form-control-sm" maxlength="12" /></td><td><input name="Members[@i].Phone" value="@m.Phone" class="form-control form-control-sm" maxlength="10" /></td></tr>
+        }
+        </tbody></table>
+        <div class="alert alert-light border small">Khi duyệt: tạo hợp đồng, chụp danh sách tài sản phòng thành <strong>biên bản nhận phòng</strong>, phòng chuyển <strong>Đã thuê</strong>, các yêu cầu khác cho phòng này bị từ chối.</div>
+        <button class="btn btn-primary">Duyệt và lập hợp đồng</button><a asp-action="Index" class="btn btn-link">Quay lại</a>
+    </form>
+</div>
