@@ -235,6 +235,7 @@ CREATE TABLE ViewingAppointments (
     CreatedAt    datetime2 NOT NULL
 );
 CREATE INDEX IX_ViewingAppointments_TenantId_Status ON ViewingAppointments(TenantId, Status);
+CREATE UNIQUE INDEX UX_Appointment_OnePendingPerRoomAndTenant ON ViewingAppointments(TenantId, RoomId) WHERE [Status] = 'Pending';
 
 CREATE TABLE RentalRequests (
     Id                int IDENTITY PRIMARY KEY,
@@ -251,6 +252,7 @@ CREATE TABLE RentalRequests (
     CONSTRAINT CK_RentalRequest_Duration  CHECK ([DurationMonths] >= 1)
 );
 CREATE INDEX IX_RentalRequests_RoomId_Status ON RentalRequests(RoomId, Status);
+CREATE UNIQUE INDEX UX_RentalRequest_OnePendingPerRoomAndTenant ON RentalRequests(TenantId, RoomId) WHERE [Status] = 'Pending';
 
 CREATE TABLE Contracts (
     Id              int IDENTITY PRIMARY KEY,

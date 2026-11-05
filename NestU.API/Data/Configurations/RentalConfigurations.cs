@@ -11,6 +11,9 @@ public class ViewingAppointmentConfiguration : IEntityTypeConfiguration<ViewingA
         b.Property(x => x.Note).HasMaxLength(500);
         b.Property(x => x.RejectReason).HasMaxLength(500);
         b.HasIndex(x => new { x.TenantId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.RoomId }).IsUnique()
+            .HasFilter("[Status] = 'Pending'")
+            .HasDatabaseName("UX_Appointment_OnePendingPerRoomAndTenant");
         b.HasOne(x => x.Room).WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -28,6 +31,9 @@ public class RentalRequestConfiguration : IEntityTypeConfiguration<RentalRequest
         b.Property(x => x.Note).HasMaxLength(500);
         b.Property(x => x.RejectReason).HasMaxLength(500);
         b.HasIndex(x => new { x.RoomId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.RoomId }).IsUnique()
+            .HasFilter("[Status] = 'Pending'")
+            .HasDatabaseName("UX_RentalRequest_OnePendingPerRoomAndTenant");
         b.HasOne(x => x.Room).WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
     }

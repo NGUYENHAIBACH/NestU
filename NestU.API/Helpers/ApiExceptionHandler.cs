@@ -39,6 +39,8 @@ public class ApiExceptionHandler : IExceptionHandler
         if (msg.Contains("IX_Rooms_BoardingHouseId_RoomNumber")) return "Số phòng đã tồn tại trong nhà trọ này.";
         if (msg.Contains("UX_Contract_OneActivePerRoom")) return "Phòng này đã có hợp đồng đang hiệu lực.";
         if (msg.Contains("UX_Contract_OneActivePerTenant")) return "Người thuê này đã có hợp đồng đang hiệu lực.";
+        if (msg.Contains("UX_RentalRequest_OnePendingPerRoomAndTenant")) return "Bạn đã gửi yêu cầu thuê phòng này rồi, vui lòng chờ chủ trọ duyệt.";
+        if (msg.Contains("UX_Appointment_OnePendingPerRoomAndTenant")) return "Bạn đã có lịch xem đang chờ cho phòng này rồi.";
         if (msg.Contains("IX_Invoices_ContractId_Year_Month")) return "Hóa đơn tháng này đã được lập.";
         if (msg.Contains("CK_")) return "Dữ liệu vi phạm ràng buộc của hệ thống.";
         if (msg.Contains("REFERENCE constraint")) return "Không thể xóa vì dữ liệu đang được sử dụng ở nơi khác.";
