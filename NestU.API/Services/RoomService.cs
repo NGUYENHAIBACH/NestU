@@ -103,7 +103,7 @@ public class RoomService : IRoomService
     public async Task<RoomDetailDto> CreateAsync(string landlordId, CreateRoomDto dto)
     {
         var house = await _houses.GetOwnedHouseAsync(landlordId, dto.BoardingHouseId);
-        if (dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Nhà trọ chỉ có {house.TotalFloors} tầng.");
+        if (dto.Floor < 1 || dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Tầng phòng phải từ 1 đến {house.TotalFloors}.");
         if (await _db.Rooms.AnyAsync(r => r.BoardingHouseId == house.Id && r.RoomNumber == dto.RoomNumber.Trim()))
             throw ApiException.Conflict($"Số phòng {dto.RoomNumber} đã tồn tại.");
         await ValidateAmenitiesAndAssets(dto.AmenityIds, dto.Assets);
@@ -124,7 +124,7 @@ public class RoomService : IRoomService
     public async Task<List<RoomListDto>> BulkCreateAsync(string landlordId, int houseId, BulkCreateRoomsDto dto)
     {
         var house = await _houses.GetOwnedHouseAsync(landlordId, houseId);
-        if (dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Nhà trọ chỉ có {house.TotalFloors} tầng.");
+        if (dto.Floor < 1 || dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Tầng phòng phải từ 1 đến {house.TotalFloors}.");
         if (dto.FromNumber > dto.ToNumber) throw ApiException.BadRequest("Số bắt đầu phải nhỏ hơn hoặc bằng số kết thúc.");
         if (dto.ToNumber - dto.FromNumber + 1 > 30) throw ApiException.BadRequest("Mỗi lần tạo tối đa 30 phòng.");
         await ValidateAmenitiesAndAssets(dto.AmenityIds, dto.Assets);
@@ -160,7 +160,10 @@ public class RoomService : IRoomService
         var room = await _db.Rooms.Include(r => r.BoardingHouse).Include(r => r.RoomAmenities).Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Id == roomId) ?? throw ApiException.NotFound("Không tìm thấy phòng.");
         if (room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
-        if (dto.Floor > room.BoardingHouse.TotalFloors) throw ApiException.BadRequest($"Nhà trọ chỉ có {room.BoardingHouse.TotalFloors} tầng.");
+        if (room.Status == RoomStatus.Occupied)
+            throw ApiException.Conflict("Phòng đang có người thuê, không thể chỉnh sửa thông tin phòng.");
+        if (dto.Floor < 1 || dto.Floor > room.BoardingHouse.TotalFloors)
+            throw ApiException.BadRequest($"Tầng phòng phải từ 1 đến {room.BoardingHouse.TotalFloors}.");
         if (await _db.Rooms.AnyAsync(r => r.BoardingHouseId == room.BoardingHouseId && r.RoomNumber == dto.RoomNumber.Trim() && r.Id != roomId))
             throw ApiException.Conflict($"Số phòng {dto.RoomNumber} đã tồn tại.");
         await ValidateAmenitiesAndAssets(dto.AmenityIds, new());
