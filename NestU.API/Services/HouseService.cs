@@ -216,6 +216,16 @@ public class HouseService : IHouseService
 
     private static void Apply(BoardingHouse h, CreateHouseDto d)
     {
+        // Quy định 2: Kiểm tra tầng nghiệp vụ Service
+        if (d.ElectricityPrice <= 0 || d.ElectricityPrice > 4000)
+            throw ApiException.BadRequest("Giá điện phải từ 1 đến 4.000đ/kWh.");
+
+        if (d.WaterPrice <= 0)
+            throw ApiException.BadRequest("Giá nước phải lớn hơn 0.");
+
+        if (d.TotalFloors < 1 || d.TotalFloors > 50)
+            throw ApiException.BadRequest("Số tầng phải từ 1 đến 50.");
+
         h.Name = d.Name.Trim(); h.Address = d.Address.Trim(); h.AreaId = d.AreaId;
         h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;
         h.ElectricityPrice = d.ElectricityPrice; h.WaterPrice = d.WaterPrice;
