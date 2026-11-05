@@ -59,6 +59,9 @@ public class BillingService : IBillingService
     {
         var c = await _rentals.GetOwnedContractAsync(landlordId, Roles.Landlord, dto.ContractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
+        var readingPeriod = new DateTime(dto.Year, dto.Month, 1);
+        if (readingPeriod < new DateTime(c.StartDate.Year, c.StartDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng ghi chỉ số ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
         if (await _db.UtilityReadings.AnyAsync(r => r.ContractId == dto.ContractId && r.Year == dto.Year && r.Month == dto.Month))
             throw ApiException.Conflict($"Đã ghi chỉ số tháng {dto.Month}/{dto.Year} cho hợp đồng này.");
 
@@ -87,6 +90,11 @@ public class BillingService : IBillingService
     {
         var c = await _rentals.GetOwnedContractAsync(landlordId, Roles.Landlord, dto.ContractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
+        if (dto.DueDate.HasValue && dto.DueDate.Value.Date < DateTime.Today)
+            throw ApiException.BadRequest("Hạn thanh toán không được ở quá khứ.");
+        var invoicePeriod = new DateTime(dto.Year, dto.Month, 1);
+        if (invoicePeriod < new DateTime(c.StartDate.Year, c.StartDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
         if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && i.Year == dto.Year && i.Month == dto.Month))
             throw ApiException.Conflict($"Hóa đơn tháng {dto.Month}/{dto.Year} đã được lập.");
 
