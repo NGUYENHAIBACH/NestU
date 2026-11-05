@@ -29,33 +29,32 @@ public static class DbSeeder
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new IdentityRole(role));
 
-        if (await db.Areas.AnyAsync()) return; // đã seed rồi
+        // Đã có tài khoản → không seed đè. Không dựa vào danh mục vì docs/NestUDb.sql chèn sẵn danh mục nhưng không có tài khoản.
+        if (await db.Users.AnyAsync()) return;
 
-        // ----- Danh mục -----
-        var areas = new[] { "Quận 1", "Quận 3", "Quận 7", "Quận 10", "Bình Thạnh", "Thủ Đức", "Gò Vấp", "Tân Bình" }
-            .Select(n => new Area { Name = n }).ToList();
-        db.Areas.AddRange(areas);
+        // ----- Danh mục: dùng lại mục đã có theo tên, chỉ thêm mục còn thiếu -----
+        var areas = await EnsureByNameAsync(db.Areas,
+            new[] { "Quận 1", "Quận 3", "Quận 7", "Quận 10", "Bình Thạnh", "Thủ Đức", "Gò Vấp", "Tân Bình" }.Select(n => new Area { Name = n }),
+            a => a.Name);
 
-        var amenities = new (string Name, string Icon)[]
+        var amenities = await EnsureByNameAsync(db.Amenities, new (string Name, string Icon)[]
         {
             ("Wifi", "bi-wifi"), ("Máy lạnh", "bi-snow"), ("WC riêng", "bi-droplet"), ("Chỗ để xe", "bi-bicycle"),
             ("Gác lửng", "bi-layers"), ("Cửa sổ", "bi-brightness-high"), ("Bếp riêng", "bi-fire"), ("Giờ giấc tự do", "bi-unlock")
-        }.Select(a => new Amenity { Name = a.Name, Icon = a.Icon }).ToList();
-        db.Amenities.AddRange(amenities);
+        }.Select(a => new Amenity { Name = a.Name, Icon = a.Icon }), a => a.Name);
 
-        var assetTypes = new[] { "Giường", "Nệm", "Tủ quần áo", "Bàn học", "Ghế", "Máy lạnh", "Quạt", "Bình nóng lạnh", "Kệ bếp", "Đèn" }
-            .Select(n => new AssetType { Name = n }).ToList();
-        db.AssetTypes.AddRange(assetTypes);
+        var assetTypes = await EnsureByNameAsync(db.AssetTypes,
+            new[] { "Giường", "Nệm", "Tủ quần áo", "Bàn học", "Ghế", "Máy lạnh", "Quạt", "Bình nóng lạnh", "Kệ bếp", "Đèn" }.Select(n => new AssetType { Name = n }),
+            a => a.Name);
 
-        var universities = new List<University>
+        var universities = await EnsureByNameAsync(db.Universities, new List<University>
         {
             new() { Name = "Đại học FPT TP.HCM", ShortName = "FPTU", Latitude = 10.8411, Longitude = 106.8098 },
             new() { Name = "Đại học Bách Khoa TP.HCM", ShortName = "HCMUT", Latitude = 10.7725, Longitude = 106.6580 },
             new() { Name = "Đại học Khoa học Tự nhiên", ShortName = "HCMUS", Latitude = 10.7628, Longitude = 106.6824 },
             new() { Name = "Đại học Kinh tế TP.HCM", ShortName = "UEH", Latitude = 10.7830, Longitude = 106.6946 },
             new() { Name = "Đại học Sư phạm Kỹ thuật", ShortName = "HCMUTE", Latitude = 10.8506, Longitude = 106.7719 }
-        };
-        db.Universities.AddRange(universities);
+        }, u => u.Name);
         await db.SaveChangesAsync();
 
         // ----- Tài khoản -----
@@ -243,5 +242,19 @@ public static class DbSeeder
         }
 
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>Trả về danh sách theo đúng thứ tự <paramref name="items"/>: mục trùng tên lấy bản đã có trong CSDL, mục thiếu được thêm mới.</summary>
+    private static async Task<List<T>> EnsureByNameAsync<T>(DbSet<T> set, IEnumerable<T> items, Func<T, string> name) where T : class
+    {
+        var existing = await set.ToListAsync();
+        var result = new List<T>();
+        foreach (var item in items)
+        {
+            var found = existing.FirstOrDefault(e => name(e) == name(item));
+            if (found is null) set.Add(item);
+            result.Add(found ?? item);
+        }
+        return result;
     }
 }
