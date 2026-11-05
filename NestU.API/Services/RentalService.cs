@@ -196,9 +196,11 @@ public class RentalService : IRentalService
         if (await _db.Contracts.AnyAsync(c => c.TenantId == req.TenantId && c.Status == ContractStatus.Active)) throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực khác.");
 
         var start = (dto.StartDate ?? req.MoveInDate).Date;
+        if (start < DateTime.Today) throw ApiException.BadRequest("Ngày bắt đầu hợp đồng không được ở quá khứ.");
         var months = dto.DurationMonths ?? req.DurationMonths;
         var end = start.AddMonths(months);
         if (end <= start) throw ApiException.BadRequest("Ngày kết thúc phải sau ngày bắt đầu.");
+        if (end <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc hợp đồng phải ở tương lai.");
 
         var serviceIds = dto.ServiceIds.Distinct().ToList();
         if (serviceIds.Count > 0)
@@ -329,6 +331,7 @@ public class RentalService : IRentalService
         var c = await GetOwnedContractAsync(landlordId, Roles.Landlord, id, track: true);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (dto.NewEndDate.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
+        if (dto.NewEndDate.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
         c.EndDate = dto.NewEndDate.Date;
         await _db.SaveChangesAsync();
     }
@@ -409,6 +412,7 @@ public class RentalService : IRentalService
         {
             if (dto.NewEndDate is null) throw ApiException.BadRequest("Vui lòng chọn ngày kết thúc mới.");
             if (dto.NewEndDate.Value.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
+            if (dto.NewEndDate.Value.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
         }
         if (await _db.ContractChangeRequests.AnyAsync(x => x.ContractId == contractId && x.Status == ChangeRequestStatus.Pending))
             throw ApiException.Conflict("Đang có yêu cầu chờ xử lý cho hợp đồng này.");
@@ -437,7 +441,10 @@ public class RentalService : IRentalService
         x.Status = dto.Approve ? ChangeRequestStatus.Approved : ChangeRequestStatus.Rejected;
         x.DecisionNote = dto.Note; x.DecidedAt = DateTime.UtcNow;
         if (dto.Approve && x.Type == ChangeRequestType.Renew && x.NewEndDate is not null && x.Contract.Status == ContractStatus.Active)
+        {
+            if (x.NewEndDate.Value.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày gia hạn đã qua, không thể duyệt.");
             x.Contract.EndDate = x.NewEndDate.Value;
+        }
         // Terminate được duyệt: Landlord tiếp tục bước biên bản trả phòng → quyết toán cọc (luồng 6)
         await _db.SaveChangesAsync();
     }

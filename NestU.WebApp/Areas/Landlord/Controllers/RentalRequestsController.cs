@@ -32,7 +32,7 @@ public class RentalRequestsController : BaseController
         var services = houseId is null ? null : await _api.ServicesAsync(houseId);
         var m = new ApproveRentalDto
         {
-            RequestId = id, Request = req, StartDate = req.MoveInDate, DurationMonths = req.DurationMonths, DepositAmount = req.DepositAmount,
+            RequestId = id, Request = req, StartDate = req.MoveInDate < DateTime.Today ? DateTime.Today : req.MoveInDate, DurationMonths = req.DurationMonths, DepositAmount = req.DepositAmount,
             AvailableServices = services?.Data?.Where(s => s.IsActive).ToList() ?? new()
         };
         for (var i = 1; i < req.NumberOfOccupants; i++) m.Members.Add(new ContractMemberDto());
