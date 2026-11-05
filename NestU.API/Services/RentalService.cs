@@ -451,7 +451,16 @@ public class RentalService : IRentalService
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (await _db.DepositSettlements.AnyAsync(s => s.ContractId == contractId)) throw ApiException.Conflict("Hợp đồng đã quyết toán cọc.");
 
+        // 1. Kiểm tra nghiệm thu tài sản nếu phòng có biên bản nhận phòng
+        var hasCheckIn = await _db.ContractAssets.AnyAsync(a => a.ContractId == contractId && a.Stage == AssetStage.CheckIn);
         var checkout = await _db.ContractAssets.AsNoTracking().Where(a => a.ContractId == contractId && a.Stage == AssetStage.CheckOut).ToListAsync();
+        if (hasCheckIn && checkout.Count == 0)
+            throw ApiException.BadRequest("Vui lòng lập biên bản kiểm tra tài sản trả phòng (CheckOut) trước khi quyết toán cọc.");
+
+        // 2. Chống trừ tiền trùng nếu có hóa đơn đang chờ xác nhận thanh toán (PendingConfirm)
+        if (await _db.Invoices.AnyAsync(i => i.ContractId == contractId && i.Status == InvoiceStatus.PendingConfirm))
+            throw ApiException.BadRequest("Đang có hóa đơn chờ xác nhận thanh toán. Vui lòng đối soát thanh toán trước khi quyết toán cọc.");
+
         var damage = checkout.Sum(a => a.DeductionAmount);
         var unpaidInvoices = dto.DeductUnpaidInvoices
             ? await _db.Invoices.Where(i => i.ContractId == contractId && i.Status != InvoiceStatus.Paid).ToListAsync()
@@ -475,6 +484,15 @@ public class RentalService : IRentalService
         {
             inv.Status = InvoiceStatus.Paid;
             _db.Payments.Add(new Payment { InvoiceId = inv.Id, Amount = inv.Total, Note = "Trừ vào tiền cọc khi trả phòng", ConfirmedAt = DateTime.UtcNow });
+        }
+
+        // Đóng các yêu cầu gia hạn/trả phòng đang Pending của hợp đồng
+        var pendingChanges = await _db.ContractChangeRequests.Where(x => x.ContractId == contractId && x.Status == ChangeRequestStatus.Pending).ToListAsync();
+        foreach (var change in pendingChanges)
+        {
+            change.Status = change.Type == ChangeRequestType.Terminate ? ChangeRequestStatus.Approved : ChangeRequestStatus.Rejected;
+            change.DecisionNote = "Đã quyết toán cọc và kết thúc hợp đồng.";
+            change.DecidedAt = DateTime.UtcNow;
         }
 
         c.Status = ContractStatus.Terminated; c.TerminatedAt = DateTime.UtcNow;
