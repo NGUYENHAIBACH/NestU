@@ -315,6 +315,11 @@ public class RoomService : IRoomService
     private static void ApplyImages(Room room, List<string> urls)
     {
         var i = 0;
-        foreach (var u in urls.Where(u => !string.IsNullOrWhiteSpace(u))) room.Images.Add(new RoomImage { Url = u.Trim(), SortOrder = i++ });
+        foreach (var u in urls.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().Take(20))
+        {
+            var trimmed = u.Trim();
+            if (trimmed.Length > 500) throw ApiException.BadRequest("Đường dẫn ảnh không được vượt quá 500 ký tự.");
+            room.Images.Add(new RoomImage { Url = trimmed, SortOrder = i++ });
+        }
     }
 }
