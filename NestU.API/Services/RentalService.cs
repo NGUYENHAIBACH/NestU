@@ -488,8 +488,15 @@ public class RentalService : IRentalService
             foreach (var ra in roomAssets)
             {
                 var co = checkout.First(a => a.RoomAssetId == ra.Id);
-                ra.Condition = co.Condition;
-                if (co.Quantity >= 1) ra.Quantity = co.Quantity;
+                if (co.Quantity <= 0)
+                {
+                    _db.RoomAssets.Remove(ra);
+                }
+                else
+                {
+                    ra.Condition = co.Condition;
+                    ra.Quantity = co.Quantity;
+                }
             }
         }
 
