@@ -16,6 +16,8 @@ public class Contract
     public decimal MonthlyRent { get; set; }
     public decimal DepositAmount { get; set; }
     public DateTime? DepositPaidAt { get; set; }
+    public int InitialElectricIndex { get; set; } = 0;
+    public int InitialWaterIndex { get; set; } = 0;
     public ContractStatus Status { get; set; } = ContractStatus.Active;
     public DateTime? TerminatedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

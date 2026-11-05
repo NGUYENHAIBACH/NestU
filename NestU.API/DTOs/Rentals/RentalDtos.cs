@@ -88,6 +88,8 @@ public class ApproveRentalDto
     /// <summary>Tiền cọc đã nhận; null → Room.DepositAmount.</summary>
     [Range(0, 1_000_000_000)] public decimal? DepositAmount { get; set; }
     public bool DepositPaid { get; set; } = true;
+    [Range(0, 1_000_000, ErrorMessage = "Chỉ số điện ban đầu không hợp lệ")] public int InitialElectricIndex { get; set; } = 0;
+    [Range(0, 1_000_000, ErrorMessage = "Chỉ số nước ban đầu không hợp lệ")] public int InitialWaterIndex { get; set; } = 0;
     public List<int> ServiceIds { get; set; } = new();
     public List<ContractMemberDto> Members { get; set; } = new();
 }
@@ -111,6 +113,8 @@ public class ContractDto
     public decimal MonthlyRent { get; set; }
     public decimal DepositAmount { get; set; }
     public DateTime? DepositPaidAt { get; set; }
+    public int InitialElectricIndex { get; set; }
+    public int InitialWaterIndex { get; set; }
     public string Status { get; set; } = string.Empty;
     /// <summary>Active quá EndDate → "Expired" (tính khi đọc, không lưu).</summary>
     public string DisplayStatus { get; set; } = string.Empty;

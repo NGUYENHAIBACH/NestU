@@ -42,6 +42,7 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract>
             t.HasCheckConstraint("CK_Contract_Dates", "[EndDate] > [StartDate]");
             t.HasCheckConstraint("CK_Contract_MonthlyRent", "[MonthlyRent] > 0");
             t.HasCheckConstraint("CK_Contract_Deposit", "[DepositAmount] >= 0");
+            t.HasCheckConstraint("CK_Contract_InitialReadings", "[InitialElectricIndex] >= 0 AND [InitialWaterIndex] >= 0");
         });
         // Mỗi người thuê một hợp đồng Active; mỗi phòng một hợp đồng Active
         b.HasIndex(x => x.TenantId).IsUnique().HasFilter("[Status] = 'Active'")

@@ -33,6 +33,8 @@ public class BillingService : IBillingService
         var rows = await q.OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).ThenBy(r => r.Contract.Room.RoomNumber).ToListAsync();
 
         var cids = rows.Select(r => r.ContractId).Distinct().ToList();
+        var contracts = await _db.Contracts.AsNoTracking().Where(c => cids.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => new { c.InitialElectricIndex, c.InitialWaterIndex });
         var invoiced = await _db.Invoices.AsNoTracking().Where(i => cids.Contains(i.ContractId)).Select(i => new { i.ContractId, i.Year, i.Month }).ToListAsync();
         var invoicedSet = invoiced.Select(i => (i.ContractId, i.Year, i.Month)).ToHashSet();
 
@@ -40,11 +42,14 @@ public class BillingService : IBillingService
         {
             var prev = rows.Where(x => x.ContractId == r.ContractId && (x.Year < r.Year || (x.Year == r.Year && x.Month < r.Month)))
                 .OrderByDescending(x => x.Year).ThenByDescending(x => x.Month).FirstOrDefault();
+            contracts.TryGetValue(r.ContractId, out var initC);
             return new UtilityReadingDto
             {
                 Id = r.Id, ContractId = r.ContractId, RoomNumber = r.Contract.Room.RoomNumber, TenantName = r.Contract.Tenant.FullName,
                 Month = r.Month, Year = r.Year, ElectricIndex = r.ElectricIndex, WaterIndex = r.WaterIndex,
-                PreviousElectricIndex = prev?.ElectricIndex, PreviousWaterIndex = prev?.WaterIndex, RecordedAt = r.RecordedAt,
+                PreviousElectricIndex = prev?.ElectricIndex ?? initC?.InitialElectricIndex,
+                PreviousWaterIndex = prev?.WaterIndex ?? initC?.InitialWaterIndex,
+                RecordedAt = r.RecordedAt,
                 HasInvoice = invoicedSet.Contains((r.ContractId, r.Year, r.Month))
             };
         }).ToList();
@@ -59,16 +64,18 @@ public class BillingService : IBillingService
 
         var prev = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year < dto.Year || (r.Year == dto.Year && r.Month < dto.Month)))
             .OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).FirstOrDefaultAsync();
-        if (prev is not null)
-        {
-            if (dto.ElectricIndex < prev.ElectricIndex) throw ApiException.BadRequest($"Chỉ số điện ({dto.ElectricIndex}) nhỏ hơn tháng trước ({prev.ElectricIndex}).");
-            if (dto.WaterIndex < prev.WaterIndex) throw ApiException.BadRequest($"Chỉ số nước ({dto.WaterIndex}) nhỏ hơn tháng trước ({prev.WaterIndex}).");
-        }
+        var baseElectric = prev?.ElectricIndex ?? c.InitialElectricIndex;
+        var baseWater = prev?.WaterIndex ?? c.InitialWaterIndex;
+
+        if (dto.ElectricIndex < baseElectric)
+            throw ApiException.BadRequest($"Chỉ số điện ({dto.ElectricIndex}) nhỏ hơn chỉ số trước đó ({baseElectric}).");
+        if (dto.WaterIndex < baseWater)
+            throw ApiException.BadRequest($"Chỉ số nước ({dto.WaterIndex}) nhỏ hơn chỉ số trước đó ({baseWater}).");
 
         var r = new UtilityReading { ContractId = dto.ContractId, Month = dto.Month, Year = dto.Year, ElectricIndex = dto.ElectricIndex, WaterIndex = dto.WaterIndex };
         _db.UtilityReadings.Add(r);
         await _db.SaveChangesAsync();
-        dto.Id = r.Id; dto.RecordedAt = r.RecordedAt; dto.PreviousElectricIndex = prev?.ElectricIndex; dto.PreviousWaterIndex = prev?.WaterIndex;
+        dto.Id = r.Id; dto.RecordedAt = r.RecordedAt; dto.PreviousElectricIndex = baseElectric; dto.PreviousWaterIndex = baseWater;
         dto.RoomNumber = c.Room.RoomNumber;
         return dto;
     }
@@ -92,17 +99,20 @@ public class BillingService : IBillingService
         var occupants = 1 + await _db.ContractMembers.CountAsync(m => m.ContractId == c.Id);
         var services = await _db.ContractServices.AsNoTracking().Include(s => s.Service).Where(s => s.ContractId == c.Id).Select(s => s.Service).ToListAsync();
 
-        var kwh = reading.ElectricIndex - (prev?.ElectricIndex ?? reading.ElectricIndex);
-        var m3 = reading.WaterIndex - (prev?.WaterIndex ?? reading.WaterIndex);
+        var baseElectric = prev?.ElectricIndex ?? c.InitialElectricIndex;
+        var baseWater = prev?.WaterIndex ?? c.InitialWaterIndex;
+
+        var kwh = reading.ElectricIndex - baseElectric;
+        var m3 = reading.WaterIndex - baseWater;
 
         var details = new List<InvoiceDetail>
         {
             new() { ItemName = $"Tiền phòng tháng {dto.Month}/{dto.Year}", Quantity = 1, Unit = "tháng", UnitPrice = c.MonthlyRent, Amount = c.MonthlyRent },
             // Quy định 2: đơn giá tại thời điểm lập, đã bị chặn ≤ 4.000 ở nhà trọ
-            new() { ItemName = $"Tiền điện ({(prev?.ElectricIndex ?? reading.ElectricIndex)} → {reading.ElectricIndex})", Quantity = kwh, Unit = "kWh", UnitPrice = house.ElectricityPrice, Amount = kwh * house.ElectricityPrice }
+            new() { ItemName = $"Tiền điện ({baseElectric} → {reading.ElectricIndex})", Quantity = kwh, Unit = "kWh", UnitPrice = house.ElectricityPrice, Amount = kwh * house.ElectricityPrice }
         };
         if (house.WaterBillingType == WaterBillingType.PerM3)
-            details.Add(new InvoiceDetail { ItemName = $"Tiền nước ({(prev?.WaterIndex ?? reading.WaterIndex)} → {reading.WaterIndex})", Quantity = m3, Unit = "m³", UnitPrice = house.WaterPrice, Amount = m3 * house.WaterPrice });
+            details.Add(new InvoiceDetail { ItemName = $"Tiền nước ({baseWater} → {reading.WaterIndex})", Quantity = m3, Unit = "m³", UnitPrice = house.WaterPrice, Amount = m3 * house.WaterPrice });
         else
             details.Add(new InvoiceDetail { ItemName = "Tiền nước (theo người)", Quantity = occupants, Unit = "người", UnitPrice = house.WaterPrice, Amount = occupants * house.WaterPrice });
         foreach (var s in services)

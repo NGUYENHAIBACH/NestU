@@ -215,7 +215,8 @@ public class RentalService : IRentalService
         {
             RoomId = room.Id, TenantId = req.TenantId, RentalRequestId = req.Id, StartDate = start, EndDate = end,
             MonthlyRent = room.Price, DepositAmount = dto.DepositAmount ?? room.DepositAmount,
-            DepositPaidAt = dto.DepositPaid ? DateTime.UtcNow : null, Status = ContractStatus.Active
+            DepositPaidAt = dto.DepositPaid ? DateTime.UtcNow : null, Status = ContractStatus.Active,
+            InitialElectricIndex = dto.InitialElectricIndex, InitialWaterIndex = dto.InitialWaterIndex
         };
         foreach (var m in dto.Members) contract.Members.Add(new ContractMember { FullName = m.FullName.Trim(), CitizenId = m.CitizenId, Phone = m.Phone });
         foreach (var sid in serviceIds) contract.Services.Add(new ContractService { ServiceId = sid });
@@ -287,6 +288,7 @@ public class RentalService : IRentalService
             HouseName = c.Room.BoardingHouse.Name, Address = c.Room.BoardingHouse.Address, TenantId = c.TenantId, TenantName = c.Tenant.FullName,
             TenantPhone = c.Tenant.PhoneNumber, LandlordName = c.Room.BoardingHouse.Landlord.FullName, LandlordPhone = c.Room.BoardingHouse.Landlord.PhoneNumber,
             StartDate = c.StartDate, EndDate = c.EndDate, MonthlyRent = c.MonthlyRent, DepositAmount = c.DepositAmount, DepositPaidAt = c.DepositPaidAt,
+            InitialElectricIndex = c.InitialElectricIndex, InitialWaterIndex = c.InitialWaterIndex,
             Status = c.Status.ToString(),
             DisplayStatus = c.Status == ContractStatus.Active && c.EndDate.Date < DateTime.Today ? "Expired" : c.Status.ToString(),
             TerminatedAt = c.TerminatedAt, CreatedAt = c.CreatedAt,

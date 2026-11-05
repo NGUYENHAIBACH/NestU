@@ -11,6 +11,10 @@
             <div class="col-md-4 mb-3"><label asp-for="DurationMonths" class="form-label"></label><input asp-for="DurationMonths" type="number" min="1" max="36" class="form-control" /></div>
             <div class="col-md-4 mb-3"><label asp-for="DepositAmount" class="form-label"></label><input asp-for="DepositAmount" type="number" step="100000" class="form-control" /></div>
         </div>
+        <div class="row">
+            <div class="col-md-6 mb-3"><label asp-for="InitialElectricIndex" class="form-label"></label><input asp-for="InitialElectricIndex" type="number" min="0" class="form-control" /><span asp-validation-for="InitialElectricIndex" class="text-danger small"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="InitialWaterIndex" class="form-label"></label><input asp-for="InitialWaterIndex" type="number" min="0" class="form-control" /><span asp-validation-for="InitialWaterIndex" class="text-danger small"></span></div>
+        </div>
         <div class="form-check mb-3"><input asp-for="DepositPaid" class="form-check-input" /><label asp-for="DepositPaid" class="form-check-label"></label> <span class="small text-secondary">(tiền cọc nhận ngoài hệ thống, ghi nhận vào hợp đồng)</span></div>
         @if (Model.AvailableServices.Count > 0)
         {
