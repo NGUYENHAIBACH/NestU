@@ -188,7 +188,9 @@ public class RoomService : IRoomService
     {
         var room = await GetOwnedRoomAsync(landlordId, roomId, track: true);
         if (room.Status == RoomStatus.Occupied) throw ApiException.BadRequest("Phòng đang có người thuê, không đổi trạng thái thủ công được.");
-        room.Status = Enum.Parse<RoomStatus>(dto.Status);
+        if (!Enum.TryParse<RoomStatus>(dto.Status, true, out var rStatus))
+            throw ApiException.BadRequest("Trạng thái phòng không hợp lệ (Available, Occupied, Maintenance).");
+        room.Status = rStatus;
         await _db.SaveChangesAsync();
     }
 
@@ -208,10 +210,12 @@ public class RoomService : IRoomService
     {
         await GetOwnedRoomAsync(landlordId, roomId);
         if (!await _db.AssetTypes.AnyAsync(t => t.Id == dto.AssetTypeId)) throw ApiException.BadRequest("Loại tài sản không tồn tại.");
+        if (!Enum.TryParse<AssetCondition>(dto.Condition, true, out var aCond))
+            throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ (Good, Damaged, Broken).");
         var a = new RoomAsset
         {
             RoomId = roomId, AssetTypeId = dto.AssetTypeId, Name = dto.Name.Trim(), Quantity = dto.Quantity,
-            Condition = Enum.Parse<AssetCondition>(dto.Condition), EstimatedValue = dto.EstimatedValue, Note = dto.Note
+            Condition = aCond, EstimatedValue = dto.EstimatedValue, Note = dto.Note
         };
         _db.RoomAssets.Add(a);
         await _db.SaveChangesAsync();
@@ -225,8 +229,10 @@ public class RoomService : IRoomService
         await GetOwnedRoomAsync(landlordId, roomId);
         var a = await _db.RoomAssets.FirstOrDefaultAsync(x => x.Id == assetId && x.RoomId == roomId) ?? throw ApiException.NotFound("Không tìm thấy tài sản.");
         if (!await _db.AssetTypes.AnyAsync(t => t.Id == dto.AssetTypeId)) throw ApiException.BadRequest("Loại tài sản không tồn tại.");
+        if (!Enum.TryParse<AssetCondition>(dto.Condition, true, out var aCondUpdate))
+            throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ (Good, Damaged, Broken).");
         a.AssetTypeId = dto.AssetTypeId; a.Name = dto.Name.Trim(); a.Quantity = dto.Quantity;
-        a.Condition = Enum.Parse<AssetCondition>(dto.Condition); a.EstimatedValue = dto.EstimatedValue; a.Note = dto.Note;
+        a.Condition = aCondUpdate; a.EstimatedValue = dto.EstimatedValue; a.Note = dto.Note;
         await _db.SaveChangesAsync();
     }
 

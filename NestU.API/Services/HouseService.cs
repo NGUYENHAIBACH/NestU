@@ -189,7 +189,8 @@ public class HouseService : IHouseService
     public async Task<ServiceDto> CreateServiceAsync(string landlordId, ServiceDto dto)
     {
         await GetOwnedHouseAsync(landlordId, dto.BoardingHouseId);
-        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = dto.Name.Trim(), Price = dto.Price, Unit = Enum.Parse<ServiceUnit>(dto.Unit), IsActive = dto.IsActive };
+        if (!Enum.TryParse<ServiceUnit>(dto.Unit, true, out var sUnit)) throw ApiException.BadRequest("Đơn vị dịch vụ không hợp lệ (PerMonth, PerPerson).");
+        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = dto.Name.Trim(), Price = dto.Price, Unit = sUnit, IsActive = dto.IsActive };
         _db.Services.Add(s);
         await _db.SaveChangesAsync();
         dto.Id = s.Id;
@@ -200,7 +201,8 @@ public class HouseService : IHouseService
     {
         var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
         if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
-        s.Name = dto.Name.Trim(); s.Price = dto.Price; s.Unit = Enum.Parse<ServiceUnit>(dto.Unit); s.IsActive = dto.IsActive;
+        if (!Enum.TryParse<ServiceUnit>(dto.Unit, true, out var sUnitUpdate)) throw ApiException.BadRequest("Đơn vị dịch vụ không hợp lệ (PerMonth, PerPerson).");
+        s.Name = dto.Name.Trim(); s.Price = dto.Price; s.Unit = sUnitUpdate; s.IsActive = dto.IsActive;
         await _db.SaveChangesAsync();
     }
 
@@ -229,8 +231,10 @@ public class HouseService : IHouseService
         h.Name = d.Name.Trim(); h.Address = d.Address.Trim(); h.AreaId = d.AreaId;
         h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;
         h.ElectricityPrice = d.ElectricityPrice; h.WaterPrice = d.WaterPrice;
-        h.WaterBillingType = Enum.Parse<WaterBillingType>(d.WaterBillingType);
-        h.AllowedTenantType = Enum.Parse<AllowedTenantType>(d.AllowedTenantType);
+        if (!Enum.TryParse<WaterBillingType>(d.WaterBillingType, true, out var wType)) throw ApiException.BadRequest("Hình thức tính tiền nước không hợp lệ (PerM3, PerPerson).");
+        if (!Enum.TryParse<AllowedTenantType>(d.AllowedTenantType, true, out var tType)) throw ApiException.BadRequest("Đối tượng cho thuê không hợp lệ (All, StudentOnly, WorkingOnly).");
+        h.WaterBillingType = wType;
+        h.AllowedTenantType = tType;
         h.Description = d.Description; h.BankCode = d.BankCode; h.BankAccount = d.BankAccount; h.AccountName = d.AccountName;
     }
 }

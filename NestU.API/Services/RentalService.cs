@@ -380,10 +380,12 @@ public class RentalService : IRentalService
         foreach (var i in dto.Items)
         {
             var baseline = checkIn.First(a => a.RoomAssetId == i.RoomAssetId);
+            if (!Enum.TryParse<AssetCondition>(i.Condition, true, out var aCond))
+                throw ApiException.BadRequest("Tình trạng tài sản trả phòng không hợp lệ.");
             _db.ContractAssets.Add(new ContractAsset
             {
                 ContractId = contractId, RoomAssetId = i.RoomAssetId, Stage = AssetStage.CheckOut, Name = baseline.Name, Quantity = i.Quantity,
-                Condition = Enum.Parse<AssetCondition>(i.Condition), DeductionAmount = i.DeductionAmount, Note = i.Note
+                Condition = aCond, DeductionAmount = i.DeductionAmount, Note = i.Note
             });
         }
         await _db.SaveChangesAsync();
@@ -407,7 +409,8 @@ public class RentalService : IRentalService
     {
         var c = await GetOwnedContractAsync(tenantId, Roles.Tenant, contractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
-        var t = Enum.Parse<ChangeRequestType>(type, true);
+        if (!Enum.TryParse<ChangeRequestType>(type, true, out var t))
+            throw ApiException.BadRequest("Loại yêu cầu không hợp lệ (Renew, Terminate).");
         if (t == ChangeRequestType.Renew)
         {
             if (dto.NewEndDate is null) throw ApiException.BadRequest("Vui lòng chọn ngày kết thúc mới.");

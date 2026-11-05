@@ -187,7 +187,9 @@ public class AdminService : IAdminService
         if (r.Status != ReportStatus.Open) throw ApiException.Conflict("Khiếu nại đã được xử lý.");
 
         await using var tx = await _db.Database.BeginTransactionAsync();
-        r.Status = Enum.Parse<ReportStatus>(dto.Status); r.ResolveNote = dto.Note; r.ResolvedAt = DateTime.UtcNow;
+        if (!Enum.TryParse<ReportStatus>(dto.Status, true, out var rStatus))
+            throw ApiException.BadRequest("Trạng thái xử lý không hợp lệ (Resolved, Dismissed).");
+        r.Status = rStatus; r.ResolveNote = dto.Note; r.ResolvedAt = DateTime.UtcNow;
 
         if (r.Status == ReportStatus.Resolved && dto.Action == "HideRoom" && r.TargetType == ReportTargetType.Room)
         {

@@ -63,12 +63,17 @@ public class SupportService : ISupportService
         if (m.Contract.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (m.Status == MaintenanceStatus.Resolved) throw ApiException.Conflict("Yêu cầu đã được xử lý xong.");
 
-        m.Status = Enum.Parse<MaintenanceStatus>(dto.Status);
+        if (!Enum.TryParse<MaintenanceStatus>(dto.Status, true, out var st)) throw ApiException.BadRequest("Trạng thái sửa chữa không hợp lệ.");
+        m.Status = st;
         m.ResolveNote = dto.Note;
         if (m.Status == MaintenanceStatus.Resolved)
         {
             m.ResolvedAt = DateTime.UtcNow;
-            if (m.RoomAsset is not null && dto.AssetCondition is not null) m.RoomAsset.Condition = Enum.Parse<AssetCondition>(dto.AssetCondition);
+            if (m.RoomAsset is not null && dto.AssetCondition is not null)
+            {
+                if (!Enum.TryParse<AssetCondition>(dto.AssetCondition, true, out var cond)) throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ.");
+                m.RoomAsset.Condition = cond;
+            }
         }
         await _db.SaveChangesAsync();
     }
@@ -119,7 +124,8 @@ public class SupportService : ISupportService
     // ----- Khiếu nại -----
     public async Task<ReportDto> CreateReportAsync(string reporterId, CreateReportDto dto)
     {
-        var type = Enum.Parse<ReportTargetType>(dto.TargetType);
+        if (!Enum.TryParse<ReportTargetType>(dto.TargetType, true, out var type))
+            throw ApiException.BadRequest("Loại đối tượng khiếu nại không hợp lệ (Room, House, Landlord).");
         var exists = type switch
         {
             ReportTargetType.Room => await _db.Rooms.AnyAsync(r => r.Id == dto.TargetId),
