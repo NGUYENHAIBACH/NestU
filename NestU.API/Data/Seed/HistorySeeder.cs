@@ -28,6 +28,12 @@ public static class HistorySeeder
         if (await db.Contracts.AnyAsync()) return; // đã seed lịch sử
 
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        // Thiếu dữ liệu nền của DbSeeder (CSDL đã có tài khoản thật) → bỏ qua, không ghi dở dang
+        var hasBaseData = await db.BoardingHouses.CountAsync(h => h.Name == "Nhà trọ An Bình" || h.Name == "Nhà Trọ Luxury") == 2;
+        foreach (var email in new[] { "sinhvien1@nestu.vn", "sinhvien2@nestu.vn", "khach1@nestu.vn" })
+            hasBaseData = hasBaseData && await userManager.FindByEmailAsync(email) != null;
+        if (!hasBaseData) return;
+
         var password = config["Seed:Password"] ?? "NestU@123";
         var universities = await db.Universities.OrderBy(u => u.Id).ToListAsync();
 
