@@ -129,14 +129,3 @@ public class LandlordApiClient : ApiClientBase
 
     private static string Q(string? v, string name = "status") => string.IsNullOrEmpty(v) ? "" : $"?{name}={Uri.EscapeDataString(v)}";
 }
-
-public class LandlordProfileDto
-{
-    public string UserId { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Họ tên là bắt buộc")] [System.ComponentModel.DataAnnotations.Display(Name = "Họ và tên")] public string FullName { get; set; } = string.Empty;
-    [System.ComponentModel.DataAnnotations.RegularExpression(@"^\d{12}$", ErrorMessage = "CCCD gồm 12 chữ số")] [System.ComponentModel.DataAnnotations.Display(Name = "Số CCCD")] public string CitizenId { get; set; } = string.Empty;
-    [System.ComponentModel.DataAnnotations.RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại gồm 10 chữ số")] [System.ComponentModel.DataAnnotations.Display(Name = "Số điện thoại")] public string Phone { get; set; } = string.Empty;
-    public string ApprovalStatus { get; set; } = string.Empty;
-    public string? ReviewNote { get; set; }
-}

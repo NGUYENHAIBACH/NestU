@@ -1,6 +1,6 @@
 @{
     ViewData["Title"] = "Trang chủ trọ";
-    NestU.WebApp.ApiClients.LandlordProfileDto? p = ViewBag.Profile;
+    NestU.WebApp.Models.Houses.LandlordProfileDto? p = ViewBag.Profile;
     List<NestU.WebApp.Models.Houses.HouseDto> houses = ViewBag.Houses ?? new List<NestU.WebApp.Models.Houses.HouseDto>();
 }
 <h1 class="h4 mb-3">Xin chào, @User.Identity?.Name</h1>
