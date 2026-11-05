@@ -16,3 +16,8 @@ public class LoginModel
 
     public string? ReturnUrl { get; set; }
 }
+
+/// <summary>Bí danh tương ứng với LoginDto bên API theo Quy tắc 2 CLAUDE.md.</summary>
+public class LoginDto : LoginModel
+{
+}
