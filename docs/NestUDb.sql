@@ -72,7 +72,8 @@ CREATE TABLE Universities (
     Name      nvarchar(200) NOT NULL,
     ShortName nvarchar(30)  NULL,
     Latitude  float NOT NULL,
-    Longitude float NOT NULL
+    Longitude float NOT NULL,
+    CONSTRAINT IX_Universities_Name UNIQUE (Name)
 );
 
 CREATE TABLE Amenities (

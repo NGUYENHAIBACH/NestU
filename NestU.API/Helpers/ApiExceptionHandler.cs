@@ -45,6 +45,13 @@ public class ApiExceptionHandler : IExceptionHandler
         if (msg.Contains("IX_UtilityReadings_ContractId_Year_Month")) return "Chỉ số điện nước tháng này đã được ghi.";
         if (msg.Contains("IX_Reviews_ContractId")) return "Hợp đồng này đã được đánh giá.";
         if (msg.Contains("CK_Review_Rating")) return "Điểm đánh giá phải từ 1 đến 5 sao.";
+        if (msg.Contains("IX_Universities_Name")) return "Tên trường đại học đã tồn tại.";
+        if (msg.Contains("IX_Areas_Name")) return "Tên khu vực đã tồn tại.";
+        if (msg.Contains("IX_Amenities_Name")) return "Tên tiện ích đã tồn tại.";
+        if (msg.Contains("IX_AssetTypes_Name")) return "Tên loại tài sản đã tồn tại.";
+        if (msg.Contains("CK_TenantProfile_Phone") || msg.Contains("CK_LandlordProfile_Phone")) return "Số điện thoại phải gồm đúng 10 chữ số.";
+        if (msg.Contains("CK_TenantProfile_CitizenId") || msg.Contains("CK_LandlordProfile_CitizenId")) return "Số CCCD phải gồm đúng 12 chữ số.";
+        if (msg.Contains("CK_TenantProfile_Student")) return "Sinh viên phải nhập mã số sinh viên và chọn trường.";
         if (msg.Contains("CK_")) return "Dữ liệu vi phạm ràng buộc của hệ thống.";
         if (msg.Contains("REFERENCE constraint")) return "Không thể xóa vì dữ liệu đang được sử dụng ở nơi khác.";
         return "Không lưu được dữ liệu.";

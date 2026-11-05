@@ -239,6 +239,7 @@ public class AdminService : IAdminService
                 if (await _db.AssetTypes.AnyAsync(x => x.Name == name)) throw ApiException.Conflict("Loại tài sản đã tồn tại.");
                 var at = new AssetType { Name = name }; _db.AssetTypes.Add(at); await _db.SaveChangesAsync(); dto.Id = at.Id; break;
             case "universities":
+                if (await _db.Universities.AnyAsync(x => x.Name == name)) throw ApiException.Conflict("Trường đại học đã tồn tại.");
                 var u = new University { Name = name, ShortName = dto.ShortName, Latitude = dto.Latitude ?? 0, Longitude = dto.Longitude ?? 0 };
                 _db.Universities.Add(u); await _db.SaveChangesAsync(); dto.Id = u.Id; break;
             default: throw ApiException.NotFound("Danh mục không tồn tại.");
@@ -252,10 +253,34 @@ public class AdminService : IAdminService
         var name = dto.Name.Trim();
         switch (type)
         {
-            case "areas": { var e = await _db.Areas.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; break; }
-            case "amenities": { var e = await _db.Amenities.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; e.Icon = dto.Icon; break; }
-            case "asset-types": { var e = await _db.AssetTypes.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; break; }
-            case "universities": { var e = await _db.Universities.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; e.ShortName = dto.ShortName; e.Latitude = dto.Latitude ?? e.Latitude; e.Longitude = dto.Longitude ?? e.Longitude; break; }
+            case "areas":
+            {
+                if (await _db.Areas.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên khu vực đã tồn tại.");
+                var e = await _db.Areas.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name;
+                break;
+            }
+            case "amenities":
+            {
+                if (await _db.Amenities.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên tiện ích đã tồn tại.");
+                var e = await _db.Amenities.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name; e.Icon = dto.Icon;
+                break;
+            }
+            case "asset-types":
+            {
+                if (await _db.AssetTypes.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên loại tài sản đã tồn tại.");
+                var e = await _db.AssetTypes.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name;
+                break;
+            }
+            case "universities":
+            {
+                if (await _db.Universities.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên trường đại học đã tồn tại.");
+                var e = await _db.Universities.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name; e.ShortName = dto.ShortName; e.Latitude = dto.Latitude ?? e.Latitude; e.Longitude = dto.Longitude ?? e.Longitude;
+                break;
+            }
             default: throw ApiException.NotFound("Danh mục không tồn tại.");
         }
         await _db.SaveChangesAsync();
