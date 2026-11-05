@@ -68,7 +68,17 @@
         <div class="card p-3">
             <h2 class="h6">Tiện ích</h2>
             <div class="d-flex flex-wrap gap-2">@foreach (var a in Model.Amenities) { <span class="badge text-bg-light border">@a</span> }@if (Model.Amenities.Count == 0) { <span class="small text-secondary">Chưa có</span> }</div>
-            @if (Model.ImageUrls.Count > 0) { <hr /><div class="d-flex flex-wrap gap-2">@foreach (var u in Model.ImageUrls) { <img src="@u" style="width:96px;height:72px;object-fit:cover" class="rounded" alt="" /> }</div> }
+            @if (Model.ImageUrls.Count > 0)
+            {
+                var apiBase = Config["ApiSettings:BaseUrl"]?.TrimEnd('/') ?? "";
+                <hr /><div class="d-flex flex-wrap gap-2">
+                    @foreach (var u in Model.ImageUrls)
+                    {
+                        var resolved = u.StartsWith("/") ? apiBase + u : u;
+                        <img src="@resolved" style="width:96px;height:72px;object-fit:cover" class="rounded" alt="" onerror="this.onerror=null;this.src='https://picsum.photos/seed/nestu/800/600'" />
+                    }
+                </div>
+            }
         </div>
     </div>
 </div>
