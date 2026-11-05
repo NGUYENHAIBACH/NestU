@@ -16,11 +16,17 @@ public class TenantProfileDto
     public string? UniversityName { get; set; }
 }
 
-public class CreateAppointmentDto
+public class CreateAppointmentDto : IValidatableObject
 {
     [Range(1, int.MaxValue)] public int RoomId { get; set; }
     [Required(ErrorMessage = "Vui lòng chọn thời gian")] public DateTime ScheduledAt { get; set; }
     [StringLength(500)] public string? Note { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (ScheduledAt < DateTime.Now.AddHours(1))
+            yield return new ValidationResult("Thời gian xem phải sau thời điểm hiện tại ít nhất 1 giờ.", new[] { nameof(ScheduledAt) });
+    }
 }
 
 public class AppointmentDto
@@ -40,13 +46,19 @@ public class AppointmentDto
     public DateTime CreatedAt { get; set; }
 }
 
-public class CreateRentalRequestDto
+public class CreateRentalRequestDto : IValidatableObject
 {
     [Range(1, int.MaxValue)] public int RoomId { get; set; }
     [Range(1, 10, ErrorMessage = "Số người từ 1 đến 10")] public int NumberOfOccupants { get; set; } = 1;
     [Required(ErrorMessage = "Vui lòng chọn ngày dọn vào")] public DateTime MoveInDate { get; set; }
     [Range(1, 36, ErrorMessage = "Thời hạn từ 1 đến 36 tháng")] public int DurationMonths { get; set; } = 6;
     [StringLength(500)] public string? Note { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (MoveInDate.Date < DateTime.Today)
+            yield return new ValidationResult("Ngày dọn vào không được ở quá khứ.", new[] { nameof(MoveInDate) });
+    }
 }
 
 public class RentalRequestDto
