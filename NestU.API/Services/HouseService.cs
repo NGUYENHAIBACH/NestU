@@ -36,6 +36,14 @@ public class HouseService : IHouseService
             ?? throw ApiException.NotFound("Chưa có hồ sơ chủ trọ.");
         p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId; p.Phone = dto.Phone;
         p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
+
+        if (p.ApprovalStatus == ApprovalStatus.Rejected)
+        {
+            p.ApprovalStatus = ApprovalStatus.Pending;
+            p.ReviewNote = null;
+            p.ReviewedAt = null;
+        }
+
         await _db.SaveChangesAsync();
     }
 
