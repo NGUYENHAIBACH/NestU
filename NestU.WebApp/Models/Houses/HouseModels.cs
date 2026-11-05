@@ -23,6 +23,8 @@ public class CreateHouseDto
     [StringLength(100)] [Display(Name = "Tên chủ tài khoản")] public string? AccountName { get; set; }
 }
 
+public class UpdateHouseDto : CreateHouseDto { }
+
 public class HouseDto
 {
     public int Id { get; set; }
@@ -92,6 +94,8 @@ public class CreateCertificateDto
     [Required(ErrorMessage = "Số giấy chứng nhận là bắt buộc")] [StringLength(50)] [Display(Name = "Số giấy chứng nhận PCCC")] public string CertificateNo { get; set; } = string.Empty;
     [Required(ErrorMessage = "Vui lòng chọn file")] [Display(Name = "File giấy chứng nhận (ảnh hoặc PDF)")] public IFormFile? File { get; set; }
 }
+
+public class ReviewCertificateDto : NestU.WebApp.Models.Common.DecisionDto { }
 
 public class ServiceDto
 {

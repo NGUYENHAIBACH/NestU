@@ -333,6 +333,17 @@ public class RentalService : IRentalService
         if (dto.NewEndDate.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
         if (dto.NewEndDate.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
         c.EndDate = dto.NewEndDate.Date;
+
+        var pendingRenew = await _db.ContractChangeRequests
+            .Where(r => r.ContractId == id && r.Type == ChangeRequestType.Renew && r.Status == ChangeRequestStatus.Pending)
+            .ToListAsync();
+        foreach (var req in pendingRenew)
+        {
+            req.Status = ChangeRequestStatus.Approved;
+            req.DecisionNote = $"Chủ trọ đã gia hạn trực tiếp đến ngày {dto.NewEndDate:dd/MM/yyyy}.";
+            req.DecidedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
     }
 

@@ -63,7 +63,8 @@ public class SupportService : ISupportService
         if (m.Contract.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (m.Status == MaintenanceStatus.Resolved) throw ApiException.Conflict("Yêu cầu đã được xử lý xong.");
 
-        if (!Enum.TryParse<MaintenanceStatus>(dto.Status, true, out var st)) throw ApiException.BadRequest("Trạng thái sửa chữa không hợp lệ.");
+        if (!Enum.TryParse<MaintenanceStatus>(dto.Status, true, out var st) || st == MaintenanceStatus.Open)
+            throw ApiException.BadRequest("Trạng thái sửa chữa không hợp lệ (InProgress, Resolved).");
         m.Status = st;
         m.ResolveNote = dto.Note;
         if (m.Status == MaintenanceStatus.Resolved)
@@ -81,6 +82,7 @@ public class SupportService : ISupportService
     // ----- Đánh giá -----
     public async Task<ReviewDto> CreateReviewAsync(string tenantId, CreateReviewDto dto)
     {
+        if (dto.Rating < 1 || dto.Rating > 5) throw ApiException.BadRequest("Điểm đánh giá phải từ 1 đến 5 sao.");
         var c = await _db.Contracts.AsNoTracking().Include(x => x.Room).FirstOrDefaultAsync(x => x.Id == dto.ContractId) ?? throw ApiException.NotFound("Không tìm thấy hợp đồng.");
         if (c.TenantId != tenantId) throw ApiException.Forbidden("Chỉ người từng thuê phòng mới được đánh giá.");
         if (c.StartDate.Date > DateTime.Today) throw ApiException.BadRequest("Hợp đồng chưa bắt đầu, chưa thể đánh giá.");
