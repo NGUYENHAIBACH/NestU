@@ -62,6 +62,8 @@ public class BillingService : IBillingService
         var readingPeriod = new DateTime(dto.Year, dto.Month, 1);
         if (readingPeriod < new DateTime(c.StartDate.Year, c.StartDate.Month, 1))
             throw ApiException.BadRequest($"Tháng ghi chỉ số ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
+        if (readingPeriod > new DateTime(c.EndDate.Year, c.EndDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng ghi chỉ số ({dto.Month}/{dto.Year}) vượt quá ngày kết thúc hợp đồng ({c.EndDate:MM/yyyy}).");
         if (await _db.UtilityReadings.AnyAsync(r => r.ContractId == dto.ContractId && r.Year == dto.Year && r.Month == dto.Month))
             throw ApiException.Conflict($"Đã ghi chỉ số tháng {dto.Month}/{dto.Year} cho hợp đồng này.");
 
@@ -95,6 +97,8 @@ public class BillingService : IBillingService
         var invoicePeriod = new DateTime(dto.Year, dto.Month, 1);
         if (invoicePeriod < new DateTime(c.StartDate.Year, c.StartDate.Month, 1))
             throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
+        if (invoicePeriod > new DateTime(c.EndDate.Year, c.EndDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) vượt quá ngày kết thúc hợp đồng ({c.EndDate:MM/yyyy}).");
         if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && i.Year == dto.Year && i.Month == dto.Month))
             throw ApiException.Conflict($"Hóa đơn tháng {dto.Month}/{dto.Year} đã được lập.");
 
@@ -129,10 +133,13 @@ public class BillingService : IBillingService
             details.Add(new InvoiceDetail { ItemName = s.Name, Quantity = qty, Unit = s.Unit == ServiceUnit.PerPerson ? "người" : "tháng", UnitPrice = s.Price, Amount = qty * s.Price });
         }
 
+        var defaultDueDate = new DateTime(dto.Year, dto.Month, 1).AddMonths(1).AddDays(9);
+        var calculatedDueDate = dto.DueDate?.Date ?? (defaultDueDate < DateTime.Today ? DateTime.Today.AddDays(7) : defaultDueDate);
+
         var invoice = new Invoice
         {
             ContractId = c.Id, Month = dto.Month, Year = dto.Year, Total = details.Sum(d => d.Amount),
-            DueDate = dto.DueDate?.Date ?? new DateTime(dto.Year, dto.Month, 1).AddMonths(1).AddDays(9), Status = InvoiceStatus.Unpaid
+            DueDate = calculatedDueDate, Status = InvoiceStatus.Unpaid
         };
         foreach (var d in details) invoice.Details.Add(d);
         _db.Invoices.Add(invoice);
@@ -215,13 +222,14 @@ public class BillingService : IBillingService
 
     public async Task RejectPaymentAsync(string landlordId, int invoiceId, string reason)
     {
+        if (string.IsNullOrWhiteSpace(reason)) throw ApiException.BadRequest("Vui lòng ghi lý do từ chối thanh toán.");
         var inv = await _db.Invoices.Include(i => i.Payments).Include(i => i.Contract).ThenInclude(c => c.Room).ThenInclude(r => r.BoardingHouse).FirstOrDefaultAsync(i => i.Id == invoiceId)
             ?? throw ApiException.NotFound("Không tìm thấy hóa đơn.");
         if (inv.Contract.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (inv.Status != InvoiceStatus.PendingConfirm) throw ApiException.Conflict("Hóa đơn chưa có báo thanh toán chờ xác nhận.");
         var last = inv.Payments.Where(p => p.ConfirmedAt == null).OrderByDescending(p => p.ReportedAt).FirstOrDefault();
         if (last is not null) _db.Payments.Remove(last);
-        inv.Status = InvoiceStatus.Unpaid; inv.RejectReason = reason;
+        inv.Status = InvoiceStatus.Unpaid; inv.RejectReason = reason.Trim();
         await _db.SaveChangesAsync();
     }
 

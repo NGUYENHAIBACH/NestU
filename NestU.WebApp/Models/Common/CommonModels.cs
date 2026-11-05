@@ -9,12 +9,16 @@ public class RejectModel
     public string Reason { get; set; } = string.Empty;
 }
 
+public class RejectDto : RejectModel { }
+
 public class DecisionModel
 {
     public int Id { get; set; }
     public bool Approve { get; set; }
     [StringLength(500)] [Display(Name = "Ghi chú")] public string? Note { get; set; }
 }
+
+public class DecisionDto : DecisionModel { }
 
 public class PagedResult<T>
 {
