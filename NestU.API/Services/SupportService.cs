@@ -145,10 +145,24 @@ public class SupportService : ISupportService
     public async Task<List<ReportDto>> GetMyReportsAsync(string reporterId)
     {
         var rows = await _db.Reports.AsNoTracking().Include(r => r.Reporter).Where(r => r.ReporterId == reporterId).OrderByDescending(r => r.CreatedAt).ToListAsync();
+
+        var roomIds = rows.Where(r => r.TargetType == ReportTargetType.Room).Select(r => r.TargetId).ToList();
+        var houseIds = rows.Where(r => r.TargetType == ReportTargetType.House).Select(r => r.TargetId).ToList();
+        var landlordIds = rows.Where(r => r.TargetType == ReportTargetType.Landlord).Select(r => r.TargetId).ToList();
+        var rooms = await _db.Rooms.AsNoTracking().Where(x => roomIds.Contains(x.Id)).Select(x => new { x.Id, Name = x.BoardingHouse.Name + " - P." + x.RoomNumber }).ToDictionaryAsync(x => x.Id, x => x.Name);
+        var houses = await _db.BoardingHouses.AsNoTracking().Where(x => houseIds.Contains(x.Id)).Select(x => new { x.Id, x.Name }).ToDictionaryAsync(x => x.Id, x => x.Name);
+        var landlords = await _db.LandlordProfiles.AsNoTracking().Where(x => landlordIds.Contains(x.Id)).Select(x => new { x.Id, x.FullName }).ToDictionaryAsync(x => x.Id, x => x.FullName);
+
         return rows.Select(r => new ReportDto
         {
             Id = r.Id, ReporterId = r.ReporterId, ReporterName = r.Reporter.FullName, TargetType = r.TargetType.ToString(), TargetId = r.TargetId,
-            TargetName = r.TargetType.ToString() + " #" + r.TargetId, Reason = r.Reason, Status = r.Status.ToString(), ResolveNote = r.ResolveNote,
+            TargetName = r.TargetType switch
+            {
+                ReportTargetType.Room => rooms.GetValueOrDefault(r.TargetId, "(phòng đã xóa)"),
+                ReportTargetType.House => houses.GetValueOrDefault(r.TargetId, "(nhà trọ đã xóa)"),
+                _ => landlords.GetValueOrDefault(r.TargetId, "(chủ trọ)")
+            },
+            Reason = r.Reason, Status = r.Status.ToString(), ResolveNote = r.ResolveNote,
             CreatedAt = r.CreatedAt, ResolvedAt = r.ResolvedAt
         }).ToList();
     }

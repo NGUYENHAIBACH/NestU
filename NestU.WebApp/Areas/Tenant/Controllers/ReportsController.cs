@@ -30,6 +30,11 @@ public class ReportsController : BaseController
             var room = await _rooms.DetailAsync(targetId);
             if (room.Success) m.TargetLabel = $"Phòng {room.Data!.RoomNumber} · {room.Data.HouseName}";
         }
+        else if (targetType == "House" && targetId > 0)
+        {
+            var house = await _rooms.HouseAsync(targetId);
+            if (house.Success) m.TargetLabel = house.Data!.Name;
+        }
         return View(m);
     }
 

@@ -12,3 +12,4 @@ public class LandlordProfileDto
     public string ApprovalStatus { get; set; } = string.Empty;
     public string? ReviewNote { get; set; }
 }
+
