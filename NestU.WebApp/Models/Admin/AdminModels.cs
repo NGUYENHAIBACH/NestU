@@ -15,6 +15,12 @@ public class UserListDto
     public DateTime CreatedAt { get; set; }
 }
 
+public class SetRoleDto
+{
+    [Required] [RegularExpression("^(Tenant|Landlord)$", ErrorMessage = "Chỉ gán được Tenant hoặc Landlord")]
+    public string Role { get; set; } = "Tenant";
+}
+
 public class LandlordApprovalDto
 {
     public int Id { get; set; }

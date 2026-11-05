@@ -211,7 +211,15 @@ public class HouseService : IHouseService
         var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
         if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (await _db.ContractServices.AnyAsync(cs => cs.ServiceId == id && cs.Contract.Status == ContractStatus.Active))
-            throw ApiException.Conflict("Dịch vụ đang được hợp đồng hiệu lực sử dụng. Hãy tắt (IsActive = false) thay vì xóa.");
+            throw ApiException.Conflict("Dịch vụ đang được hợp đồng hiệu lực sử dụng. Hãy chuyển sang ngừng cung cấp (IsActive = false) thay vì xóa.");
+
+        if (await _db.ContractServices.AnyAsync(cs => cs.ServiceId == id))
+        {
+            s.IsActive = false;
+            await _db.SaveChangesAsync();
+            return;
+        }
+
         _db.Services.Remove(s);
         await _db.SaveChangesAsync();
     }
