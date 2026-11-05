@@ -8,6 +8,7 @@ namespace NestU.API.Controllers.Public;
 
 [ApiController]
 [Route("api")]
+[Route("api/public")]
 public class PublicRoomsController : ControllerBase
 {
     private readonly IRoomService _rooms;
@@ -47,6 +48,7 @@ public class PublicRoomsController : ControllerBase
 
 [ApiController]
 [Route("api/rooms")]
+[Route("api/public/rooms")]
 public class PublicReviewsController : ControllerBase
 {
     private readonly ISupportService _support;
