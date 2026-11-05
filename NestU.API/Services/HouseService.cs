@@ -19,6 +19,26 @@ public class HouseService : IHouseService
         _files = files;
     }
 
+    public async Task<LandlordProfileDto> GetProfileAsync(string landlordId)
+    {
+        var p = await _db.LandlordProfiles.AsNoTracking().Include(x => x.User).FirstOrDefaultAsync(x => x.UserId == landlordId)
+            ?? throw ApiException.NotFound("Chưa có hồ sơ chủ trọ.");
+        return new LandlordProfileDto
+        {
+            UserId = landlordId, Email = p.User.Email ?? "", FullName = p.FullName, CitizenId = p.CitizenId, Phone = p.Phone,
+            ApprovalStatus = p.ApprovalStatus.ToString(), ReviewNote = p.ReviewNote
+        };
+    }
+
+    public async Task UpdateProfileAsync(string landlordId, LandlordProfileDto dto)
+    {
+        var p = await _db.LandlordProfiles.Include(x => x.User).FirstOrDefaultAsync(x => x.UserId == landlordId) 
+            ?? throw ApiException.NotFound("Chưa có hồ sơ chủ trọ.");
+        p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId; p.Phone = dto.Phone;
+        p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
+        await _db.SaveChangesAsync();
+    }
+
     public async Task<BoardingHouse> GetOwnedHouseAsync(string landlordId, int houseId, bool track = false)
     {
         var q = track ? _db.BoardingHouses : _db.BoardingHouses.AsNoTracking();

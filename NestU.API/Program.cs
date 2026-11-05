@@ -74,6 +74,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IRentalService, RentalService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<ISupportService, SupportService>();
+builder.Services.AddScoped<IPublicService, PublicService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 

@@ -280,6 +280,8 @@ public class RoomService : IRoomService
         return await LoadDetailAsync(roomId);
     }
 
+    public IQueryable<RoomListDto> GetPublicRoomsQuery() => NestU.API.Controllers.OData.RoomQueries.PublicRooms(_db);
+
     // ----- private -----
     private async Task ValidateAmenitiesAndAssets(List<int> amenityIds, List<AssetTemplateDto> assets)
     {
