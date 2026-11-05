@@ -29,7 +29,7 @@
             <td>P.@c.RoomNumber<div class="small text-secondary">@c.HouseName</div></td><td>@c.TenantName<div class="small text-secondary">@c.TenantPhone</div></td>
             <td>@c.StartDate.ToString("dd/MM/yy") → @c.EndDate.ToString("dd/MM/yy")@if (c.DisplayStatus == "Expired") { <div class="small text-danger">Đã hết hạn</div> }</td>
             <td class="text-end">@c.MonthlyRent.ToString("N0")đ</td><td>@(c.UnpaidInvoices > 0 ? $"{c.UnpaidInvoices} hóa đơn" : "—")</td>
-            <td><partial name="_StatusBadge" model="@c.Status" />@if (!c.CheckInConfirmed && c.Status == "Active") { <div class="small text-warning">Chờ xác nhận biên bản</div> }</td>
+            <td><partial name="_StatusBadge" model="@c.DisplayStatus" />@if (!c.CheckInConfirmed && c.Status == "Active") { <div class="small text-warning">Chờ xác nhận biên bản</div> }</td>
             <td class="text-end"><a asp-action="Details" asp-route-id="@c.Id" class="btn btn-outline-dark btn-sm">Chi tiết</a></td>
         </tr>
     }
