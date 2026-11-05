@@ -180,8 +180,21 @@ public class RoomService : IRoomService
         var room = await GetOwnedRoomAsync(landlordId, roomId, track: true);
         if (await _db.Contracts.AnyAsync(c => c.RoomId == roomId))
             throw ApiException.Conflict("Phòng đã có hợp đồng, không thể xóa. Hãy đặt trạng thái Đang sửa nếu không cho thuê.");
+        if (await _db.RentalRequests.AnyAsync(r => r.RoomId == roomId && r.Status == RentalRequestStatus.Pending))
+            throw ApiException.Conflict("Phòng đang có yêu cầu thuê chờ duyệt, không thể xóa.");
+        if (await _db.ViewingAppointments.AnyAsync(a => a.RoomId == roomId && a.Status == AppointmentStatus.Pending))
+            throw ApiException.Conflict("Phòng đang có lịch xem chờ xác nhận, không thể xóa.");
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        var requests = await _db.RentalRequests.Where(r => r.RoomId == roomId).ToListAsync();
+        if (requests.Count > 0) _db.RentalRequests.RemoveRange(requests);
+
+        var appointments = await _db.ViewingAppointments.Where(a => a.RoomId == roomId).ToListAsync();
+        if (appointments.Count > 0) _db.ViewingAppointments.RemoveRange(appointments);
+
         _db.Rooms.Remove(room);
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
     }
 
     public async Task SetStatusAsync(string landlordId, int roomId, SetRoomStatusDto dto)
@@ -256,6 +269,7 @@ public class RoomService : IRoomService
             .Where(r => dto.TargetRoomIds.Contains(r.Id) && r.Id != roomId).ToListAsync();
         if (targets.Count != dto.TargetRoomIds.Distinct().Count(x => x != roomId)) throw ApiException.NotFound("Có phòng đích không tồn tại.");
         if (targets.Any(t => t.BoardingHouse.LandlordId != landlordId)) throw ApiException.Forbidden("Có phòng đích không thuộc nhà trọ của bạn.");
+        if (targets.Any(t => t.Status == RoomStatus.Occupied)) throw ApiException.Conflict("Không thể sao chép tài sản vào phòng đang có người thuê.");
 
         await using var tx = await _db.Database.BeginTransactionAsync();
         foreach (var t in targets)
