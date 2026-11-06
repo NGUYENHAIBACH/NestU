@@ -112,7 +112,12 @@ public class AdminService : IAdminService
     {
         var p = await _db.LandlordProfiles.FirstOrDefaultAsync(x => x.Id == profileId) ?? throw ApiException.NotFound("Không tìm thấy hồ sơ.");
         if (p.ApprovalStatus == ApprovalStatus.Approved && dto.Approve) throw ApiException.Conflict("Hồ sơ đã được duyệt trước đó.");
+        if (p.ApprovalStatus == ApprovalStatus.Rejected && !dto.Approve) throw ApiException.Conflict("Hồ sơ đã bị từ chối trước đó.");
         if (!dto.Approve && string.IsNullOrWhiteSpace(dto.Note)) throw ApiException.BadRequest("Vui lòng ghi lý do từ chối.");
+
+        if (p.ApprovalStatus == ApprovalStatus.Approved && !dto.Approve && await _db.BoardingHouses.AnyAsync(h => h.LandlordId == p.UserId && h.Status == HouseStatus.Active))
+            throw ApiException.Conflict("Chủ trọ đang có nhà trọ hoạt động, không thể chuyển sang trạng thái Từ chối. Hãy khóa tài khoản hoặc xử lý nhà trọ trước.");
+
         p.ApprovalStatus = dto.Approve ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
         p.ReviewNote = dto.Note; p.ReviewedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();

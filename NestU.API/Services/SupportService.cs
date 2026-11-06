@@ -45,8 +45,19 @@ public class SupportService : ISupportService
     {
         var c = await _rentals.GetOwnedContractAsync(tenantId, Roles.Tenant, dto.ContractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
-        if (dto.RoomAssetId is not null && !await _db.RoomAssets.AnyAsync(a => a.Id == dto.RoomAssetId && a.RoomId == c.RoomId))
-            throw ApiException.BadRequest("Tài sản không thuộc phòng của bạn.");
+        if (c.EndDate.Date < DateTime.Today) throw ApiException.Conflict("Hợp đồng đã hết hạn, không thể gửi yêu cầu sửa chữa.");
+        if (dto.RoomAssetId is not null)
+        {
+            if (!await _db.RoomAssets.AnyAsync(a => a.Id == dto.RoomAssetId && a.RoomId == c.RoomId))
+                throw ApiException.BadRequest("Tài sản không thuộc phòng của bạn.");
+            if (await _db.MaintenanceRequests.AnyAsync(m => m.ContractId == dto.ContractId && m.RoomAssetId == dto.RoomAssetId && m.Status != MaintenanceStatus.Resolved))
+                throw ApiException.Conflict("Tài sản này đang có yêu cầu sửa chữa chờ xử lý.");
+        }
+        else if (await _db.MaintenanceRequests.AnyAsync(m => m.ContractId == dto.ContractId && m.RoomAssetId == null && m.Title == dto.Title.Trim() && m.Status != MaintenanceStatus.Resolved))
+        {
+            throw ApiException.Conflict("Đang có yêu cầu sửa chữa cùng tiêu đề chờ xử lý.");
+        }
+
         string? url = null;
         if (dto.Image is not null) url = await _files.SaveAsync(dto.Image, "maintenance", new[] { ".jpg", ".jpeg", ".png", ".webp" });
 
@@ -97,6 +108,11 @@ public class SupportService : ISupportService
 
     public async Task<List<ReviewDto>> GetRoomReviewsAsync(int roomId)
     {
+        var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == roomId)
+            ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (room.BoardingHouse.Status != HouseStatus.Active)
+            throw ApiException.NotFound("Phòng này chưa được công khai.");
+
         var rows = await _db.Reviews.AsNoTracking().Include(r => r.Contract).ThenInclude(c => c.Room).Include(r => r.Contract).ThenInclude(c => c.Tenant)
             .Where(r => r.Contract.RoomId == roomId).OrderByDescending(r => r.CreatedAt).ToListAsync();
         return rows.Select(r => new ReviewDto
@@ -135,6 +151,17 @@ public class SupportService : ISupportService
             _ => await _db.LandlordProfiles.AnyAsync(p => p.Id == dto.TargetId)
         };
         if (!exists) throw ApiException.NotFound("Đối tượng khiếu nại không tồn tại.");
+
+        if (type == ReportTargetType.Room && await _db.Rooms.AnyAsync(r => r.Id == dto.TargetId && r.BoardingHouse.LandlordId == reporterId))
+            throw ApiException.BadRequest("Bạn không thể khiếu nại phòng do chính mình quản lý.");
+        if (type == ReportTargetType.House && await _db.BoardingHouses.AnyAsync(h => h.Id == dto.TargetId && h.LandlordId == reporterId))
+            throw ApiException.BadRequest("Bạn không thể khiếu nại nhà trọ do chính mình quản lý.");
+        if (type == ReportTargetType.Landlord && await _db.LandlordProfiles.AnyAsync(p => p.Id == dto.TargetId && p.UserId == reporterId))
+            throw ApiException.BadRequest("Bạn không thể tự khiếu nại chính mình.");
+
+        if (string.IsNullOrWhiteSpace(dto.Reason) || dto.Reason.Trim().Length < 10)
+            throw ApiException.BadRequest("Nội dung khiếu nại phải từ 10 ký tự trở lên.");
+
         if (await _db.Reports.AnyAsync(r => r.ReporterId == reporterId && r.TargetType == type && r.TargetId == dto.TargetId && r.Status == ReportStatus.Open))
             throw ApiException.Conflict("Bạn đã gửi khiếu nại cho đối tượng này và đang chờ xử lý.");
 
