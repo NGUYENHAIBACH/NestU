@@ -67,15 +67,28 @@ public class BillingService : IBillingService
         if (await _db.UtilityReadings.AnyAsync(r => r.ContractId == dto.ContractId && r.Year == dto.Year && r.Month == dto.Month))
             throw ApiException.Conflict($"Đã ghi chỉ số tháng {dto.Month}/{dto.Year} cho hợp đồng này.");
 
+        if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && (i.Year > dto.Year || (i.Year == dto.Year && i.Month > dto.Month))))
+            throw new BusinessRuleException($"Không thể ghi chỉ số tháng {dto.Month}/{dto.Year} vì đã tồn tại hóa đơn ở các kỳ tương lai.");
+
         var prev = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year < dto.Year || (r.Year == dto.Year && r.Month < dto.Month)))
             .OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).FirstOrDefaultAsync();
         var baseElectric = prev?.ElectricIndex ?? c.InitialElectricIndex;
         var baseWater = prev?.WaterIndex ?? c.InitialWaterIndex;
 
         if (dto.ElectricIndex < baseElectric)
-            throw ApiException.BadRequest($"Chỉ số điện ({dto.ElectricIndex}) nhỏ hơn chỉ số trước đó ({baseElectric}).");
+            throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được nhỏ hơn chỉ số kỳ liền trước ({baseElectric}).");
         if (dto.WaterIndex < baseWater)
-            throw ApiException.BadRequest($"Chỉ số nước ({dto.WaterIndex}) nhỏ hơn chỉ số trước đó ({baseWater}).");
+            throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được nhỏ hơn chỉ số kỳ liền trước ({baseWater}).");
+
+        var next = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year > dto.Year || (r.Year == dto.Year && r.Month > dto.Month)))
+            .OrderBy(r => r.Year).ThenBy(r => r.Month).FirstOrDefaultAsync();
+        if (next is not null)
+        {
+            if (dto.ElectricIndex > next.ElectricIndex)
+                throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được lớn hơn chỉ số kỳ sau ({next.Month}/{next.Year}: {next.ElectricIndex}).");
+            if (dto.WaterIndex > next.WaterIndex)
+                throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được lớn hơn chỉ số kỳ sau ({next.Month}/{next.Year}: {next.WaterIndex}).");
+        }
 
         var r = new UtilityReading { ContractId = dto.ContractId, Month = dto.Month, Year = dto.Year, ElectricIndex = dto.ElectricIndex, WaterIndex = dto.WaterIndex };
         _db.UtilityReadings.Add(r);
