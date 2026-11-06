@@ -1,7 +1,7 @@
 @model dynamic
 @{
-    List<NestU.WebApp.Models.Common.LookupItem> amenities = ViewBag.Amenities;
-    List<int> selected = Model.AmenityIds;
+    List<NestU.WebApp.Models.Public.LookupItemDto> amenities = ViewBag.Amenities ?? new List<NestU.WebApp.Models.Public.LookupItemDto>();
+    List<int> selected = Model?.AmenityIds ?? new List<int>();
 }
 <div class="mb-3"><label class="form-label">Tiện ích</label>
     <div class="d-flex flex-wrap gap-3">
