@@ -11,8 +11,13 @@ public class CreateHouseDto
     [Required(ErrorMessage = "Địa chỉ là bắt buộc")] [StringLength(300)]
     public string Address { get; set; } = string.Empty;
 
-    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn khu vực")]
-    public int AreaId { get; set; }
+    /// <summary>Khu vực chủ trọ tự chọn; để trống thì suy ra từ <see cref="DistrictName"/>.</summary>
+    [Range(1, int.MaxValue, ErrorMessage = "Khu vực không hợp lệ")]
+    public int? AreaId { get; set; }
+
+    /// <summary>Tên quận/huyện từ bộ chọn địa chỉ, ví dụ "Quận Bình Thạnh". Dùng khi không chọn khu vực.</summary>
+    [StringLength(100)]
+    public string? DistrictName { get; set; }
 
     [Range(-90, 90)] public double? Latitude { get; set; }
     [Range(-180, 180)] public double? Longitude { get; set; }

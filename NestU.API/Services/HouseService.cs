@@ -91,9 +91,9 @@ public class HouseService : IHouseService
 
     public async Task<HouseDto> CreateAsync(string landlordId, CreateHouseDto dto)
     {
-        if (!await _db.Areas.AnyAsync(a => a.Id == dto.AreaId)) throw ApiException.BadRequest("Khu vực không tồn tại.");
         var house = new BoardingHouse { LandlordId = landlordId, Status = HouseStatus.Pending };
         Apply(house, dto);
+        await AssignAreaAsync(house, dto);
         _db.BoardingHouses.Add(house);
         await _db.SaveChangesAsync();
         return await GetMineByIdAsync(landlordId, house.Id);
@@ -102,14 +102,41 @@ public class HouseService : IHouseService
     public async Task UpdateAsync(string landlordId, int id, UpdateHouseDto dto)
     {
         var house = await GetOwnedHouseAsync(landlordId, id, track: true);
-        if (!await _db.Areas.AnyAsync(a => a.Id == dto.AreaId)) throw ApiException.BadRequest("Khu vực không tồn tại.");
 
         var maxFloor = await _db.Rooms.Where(r => r.BoardingHouseId == id).Select(r => (int?)r.Floor).MaxAsync() ?? 0;
         if (dto.TotalFloors < maxFloor)
             throw ApiException.BadRequest($"Không thể giảm số tầng xuống {dto.TotalFloors} vì đang có phòng ở tầng {maxFloor}.");
 
         Apply(house, dto);
+        await AssignAreaAsync(house, dto, keepCurrent: true);
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Gán khu vực cho nhà trọ: ưu tiên khu vực chủ trọ chọn; không chọn thì suy ra từ quận/huyện,
+    /// so khớp chính xác theo tên đã chuẩn hóa; quận chưa có trong danh mục thì tạo mới cùng lần lưu nhà trọ.
+    /// </summary>
+    private async Task AssignAreaAsync(BoardingHouse house, CreateHouseDto dto, bool keepCurrent = false)
+    {
+        if (dto.AreaId is > 0)
+        {
+            if (!await _db.Areas.AnyAsync(a => a.Id == dto.AreaId)) throw ApiException.BadRequest("Khu vực không tồn tại.");
+            house.AreaId = dto.AreaId.Value;
+            return;
+        }
+
+        var name = AreaNames.Normalize(dto.DistrictName);
+        if (name.Length == 0)
+        {
+            if (keepCurrent) return;   // sửa nhà trọ mà không đổi địa chỉ hành chính → giữ khu vực cũ
+            throw ApiException.BadRequest("Vui lòng chọn Quận / Huyện trong địa chỉ hoặc chọn khu vực.");
+        }
+
+        var key = AreaNames.Key(name);
+        var areas = await _db.Areas.AsNoTracking().Select(a => new { a.Id, a.Name }).ToListAsync();
+        var match = areas.FirstOrDefault(a => AreaNames.Key(a.Name) == key);
+        if (match is not null) house.AreaId = match.Id;
+        else house.Area = new Area { Name = name };
     }
 
     public async Task DeleteAsync(string landlordId, int id)
@@ -253,7 +280,7 @@ public class HouseService : IHouseService
         if (d.Longitude.HasValue && (d.Longitude < -180 || d.Longitude > 180))
             throw new BusinessRuleException("Kinh độ (Longitude) phải nằm trong khoảng từ -180 đến 180 độ.");
 
-        h.Name = d.Name.Trim(); h.Address = d.Address.Trim(); h.AreaId = d.AreaId;
+        h.Name = d.Name.Trim(); h.Address = d.Address.Trim();
         h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;
         h.ElectricityPrice = d.ElectricityPrice; h.WaterPrice = d.WaterPrice;
         if (!Enum.TryParse<WaterBillingType>(d.WaterBillingType, true, out var wType)) throw ApiException.BadRequest("Hình thức tính tiền nước không hợp lệ (PerM3, PerPerson).");
