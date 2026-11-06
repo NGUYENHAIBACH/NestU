@@ -200,9 +200,19 @@ public class RoomService : IRoomService
     public async Task SetStatusAsync(string landlordId, int roomId, SetRoomStatusDto dto)
     {
         var room = await GetOwnedRoomAsync(landlordId, roomId, track: true);
-        if (room.Status == RoomStatus.Occupied) throw ApiException.BadRequest("Phòng đang có người thuê, không đổi trạng thái thủ công được.");
+        if (room.Status == RoomStatus.Occupied || await _db.Contracts.AnyAsync(c => c.RoomId == roomId && c.Status == ContractStatus.Active))
+            throw ApiException.BadRequest("Phòng đang có người thuê, không đổi trạng thái thủ công được.");
         if (!Enum.TryParse<RoomStatus>(dto.Status, true, out var rStatus))
-            throw ApiException.BadRequest("Trạng thái phòng không hợp lệ (Available, Occupied, Maintenance).");
+            throw ApiException.BadRequest("Trạng thái phòng không hợp lệ (Available, Maintenance).");
+        if (rStatus == RoomStatus.Occupied)
+            throw ApiException.BadRequest("Chỉ được chuyển trạng thái sang Còn trống (Available) hoặc Đang sửa (Maintenance).");
+        if (rStatus == RoomStatus.Maintenance)
+        {
+            if (await _db.RentalRequests.AnyAsync(r => r.RoomId == roomId && r.Status == RentalRequestStatus.Pending))
+                throw ApiException.Conflict("Phòng đang có yêu cầu thuê chờ duyệt, vui lòng xử lý yêu cầu trước khi chuyển sang Đang sửa.");
+            if (await _db.ViewingAppointments.AnyAsync(a => a.RoomId == roomId && a.Status == AppointmentStatus.Pending))
+                throw ApiException.Conflict("Phòng đang có lịch xem chờ xác nhận, vui lòng xử lý lịch xem trước khi chuyển sang Đang sửa.");
+        }
         room.Status = rStatus;
         await _db.SaveChangesAsync();
     }
