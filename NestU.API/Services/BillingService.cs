@@ -108,10 +108,29 @@ public class BillingService : IBillingService
         if (dto.DueDate.HasValue && dto.DueDate.Value.Date < DateTime.Today)
             throw ApiException.BadRequest("Hạn thanh toán không được ở quá khứ.");
         var invoicePeriod = new DateTime(dto.Year, dto.Month, 1);
-        if (invoicePeriod < new DateTime(c.StartDate.Year, c.StartDate.Month, 1))
+        var contractStartMonth = new DateTime(c.StartDate.Year, c.StartDate.Month, 1);
+        if (invoicePeriod < contractStartMonth)
             throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
         if (invoicePeriod > new DateTime(c.EndDate.Year, c.EndDate.Month, 1))
             throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) vượt quá ngày kết thúc hợp đồng ({c.EndDate:MM/yyyy}).");
+
+        var latestInvoice = await _db.Invoices.AsNoTracking()
+            .Where(i => i.ContractId == dto.ContractId)
+            .OrderByDescending(i => i.Year).ThenByDescending(i => i.Month)
+            .FirstOrDefaultAsync();
+
+        if (latestInvoice is null)
+        {
+            if (invoicePeriod != contractStartMonth)
+                throw new BusinessRuleException($"Hóa đơn đầu tiên phải được lập cho tháng bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
+        }
+        else
+        {
+            var expectedPeriod = new DateTime(latestInvoice.Year, latestInvoice.Month, 1).AddMonths(1);
+            if (invoicePeriod != expectedPeriod)
+                throw new BusinessRuleException($"Hóa đơn phải được lập tuần tự theo từng tháng. Kỳ tiếp theo cần lập là tháng {expectedPeriod.Month}/{expectedPeriod.Year}.");
+        }
+
         if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && i.Year == dto.Year && i.Month == dto.Month))
             throw ApiException.Conflict($"Hóa đơn tháng {dto.Month}/{dto.Year} đã được lập.");
 

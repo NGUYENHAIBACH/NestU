@@ -152,6 +152,8 @@ public class HouseService : IHouseService
     public async Task<CertificateDto> UploadCertificateAsync(string landlordId, int houseId, CreateCertificateDto dto)
     {
         var house = await GetOwnedHouseAsync(landlordId, houseId, track: true);
+        if (house.Status == HouseStatus.Active)
+            throw new BusinessRuleException("Nhà trọ đã được phê duyệt hoạt động, không thể nộp thêm giấy PCCC mới.");
         if (await _db.FireSafetyCertificates.AnyAsync(c => c.BoardingHouseId == houseId && c.Status == CertificateStatus.Pending))
             throw ApiException.Conflict("Đang có giấy PCCC chờ duyệt, vui lòng đợi kết quả.");
 
@@ -245,6 +247,11 @@ public class HouseService : IHouseService
 
         if (d.TotalFloors < 1 || d.TotalFloors > 50)
             throw ApiException.BadRequest("Số tầng phải từ 1 đến 50.");
+
+        if (d.Latitude.HasValue && (d.Latitude < -90 || d.Latitude > 90))
+            throw new BusinessRuleException("Vĩ độ (Latitude) phải nằm trong khoảng từ -90 đến 90 độ.");
+        if (d.Longitude.HasValue && (d.Longitude < -180 || d.Longitude > 180))
+            throw new BusinessRuleException("Kinh độ (Longitude) phải nằm trong khoảng từ -180 đến 180 độ.");
 
         h.Name = d.Name.Trim(); h.Address = d.Address.Trim(); h.AreaId = d.AreaId;
         h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;

@@ -83,7 +83,8 @@ public class AuthService : IAuthService
 
     public async Task<TokenDto> LoginAsync(LoginDto dto)
     {
-        var user = await _userManager.FindByEmailAsync(dto.Email);
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var user = await _userManager.FindByEmailAsync(email);
         if (user is null || !await _userManager.CheckPasswordAsync(user, dto.Password))
             throw new ApiException(StatusCodes.Status401Unauthorized, "Email hoặc mật khẩu không đúng.");
         if (user.IsLocked)

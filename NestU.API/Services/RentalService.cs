@@ -169,6 +169,8 @@ public class RentalService : IRentalService
         // Quy định 1: chỉ nhà trọ Active (đã duyệt PCCC)
         if (room.BoardingHouse.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC, chưa nhận yêu cầu thuê.");
         if (room.Status != RoomStatus.Available) throw ApiException.BadRequest("Phòng hiện không còn trống.");
+        if (dto.NumberOfOccupants < 1) throw new BusinessRuleException("Số người ở phải từ 1 người trở lên.");
+        if (dto.DurationMonths < 1 || dto.DurationMonths > 36) throw new BusinessRuleException("Thời hạn thuê phải từ 1 đến 36 tháng.");
         if (dto.NumberOfOccupants > room.Capacity) throw ApiException.BadRequest($"Phòng chỉ chứa tối đa {room.Capacity} người.");
         if (room.BoardingHouse.AllowedTenantType == AllowedTenantType.StudentOnly && !profile.IsStudent) throw ApiException.BadRequest("Nhà trọ này chỉ nhận sinh viên.");
         if (dto.MoveInDate.Date < DateTime.Today) throw ApiException.BadRequest("Ngày dọn vào không được ở quá khứ.");
@@ -212,6 +214,7 @@ public class RentalService : IRentalService
         if (req.Status != RentalRequestStatus.Pending) throw ApiException.Conflict("Yêu cầu này đã được xử lý.");
         if (house.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC.");
         if (room.Status != RoomStatus.Available) throw ApiException.Conflict("Phòng đã có người thuê.");
+        if (req.NumberOfOccupants < 1) throw new BusinessRuleException("Số người ở phải từ 1 người trở lên.");
         if (req.NumberOfOccupants > room.Capacity) throw ApiException.BadRequest($"Số người vượt sức chứa ({room.Capacity}).");
         if (house.AllowedTenantType == AllowedTenantType.StudentOnly && !(req.Tenant.TenantProfile?.IsStudent ?? false)) throw ApiException.BadRequest("Nhà trọ chỉ nhận sinh viên.");
         if (await _db.Contracts.AnyAsync(c => c.TenantId == req.TenantId && c.Status == ContractStatus.Active)) throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực khác.");
@@ -219,6 +222,7 @@ public class RentalService : IRentalService
         var start = (dto.StartDate ?? req.MoveInDate).Date;
         if (start < DateTime.Today) throw ApiException.BadRequest("Ngày bắt đầu hợp đồng không được ở quá khứ.");
         var months = dto.DurationMonths ?? req.DurationMonths;
+        if (months < 1 || months > 36) throw new BusinessRuleException("Thời hạn thuê phải từ 1 đến 36 tháng.");
         var end = start.AddMonths(months);
         if (end <= start) throw ApiException.BadRequest("Ngày kết thúc phải sau ngày bắt đầu.");
         if (end <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc hợp đồng phải ở tương lai.");
@@ -360,6 +364,8 @@ public class RentalService : IRentalService
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (dto.NewEndDate.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
         if (dto.NewEndDate.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
+        if (dto.NewEndDate.Date > c.EndDate.Date.AddMonths(36))
+            throw new BusinessRuleException("Thời gian gia hạn hợp đồng tối đa 36 tháng mỗi lần.");
         c.EndDate = dto.NewEndDate.Date;
 
         var pendingRenew = await _db.ContractChangeRequests
@@ -417,6 +423,9 @@ public class RentalService : IRentalService
         if (duplicateAssetIds.Count > 0)
             throw new BusinessRuleException($"Phát hiện tài sản (ID: {string.Join(", ", duplicateAssetIds)}) bị gửi lặp lại trong danh sách trả phòng. Vui lòng kiểm tra lại để tránh nhân đôi tiền khấu trừ.");
 
+        if (dto.Items.Any(i => i.DeductionAmount < 0))
+            throw new BusinessRuleException("Số tiền khấu trừ cho từng tài sản không được âm.");
+
         await using var tx = await _db.Database.BeginTransactionAsync();
         var existing = await _db.ContractAssets.Where(a => a.ContractId == contractId && a.Stage == AssetStage.CheckOut).ToListAsync();
         _db.ContractAssets.RemoveRange(existing);   // cho phép ghi lại biên bản trả phòng trước khi quyết toán
@@ -454,11 +463,15 @@ public class RentalService : IRentalService
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (!Enum.TryParse<ChangeRequestType>(type, true, out var t))
             throw ApiException.BadRequest("Loại yêu cầu không hợp lệ (Renew, Terminate).");
+        if (t == ChangeRequestType.Terminate && c.EndDate.Date < DateTime.Today)
+            throw new BusinessRuleException("Hợp đồng đã quá hạn hiệu lực, không thể gửi yêu cầu chấm dứt hợp đồng.");
         if (t == ChangeRequestType.Renew)
         {
             if (dto.NewEndDate is null) throw ApiException.BadRequest("Vui lòng chọn ngày kết thúc mới.");
             if (dto.NewEndDate.Value.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
             if (dto.NewEndDate.Value.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
+            if (dto.NewEndDate.Value.Date > c.EndDate.Date.AddMonths(36))
+                throw new BusinessRuleException("Thời gian gia hạn hợp đồng tối đa 36 tháng mỗi lần.");
         }
         if (await _db.ContractChangeRequests.AnyAsync(x => x.ContractId == contractId && x.Status == ChangeRequestStatus.Pending))
             throw ApiException.Conflict("Đang có yêu cầu chờ xử lý cho hợp đồng này.");
