@@ -5,6 +5,7 @@ using NestU.WebApp.Models.Common;
 using NestU.WebApp.Models.Houses;
 using NestU.WebApp.Models.Rentals;
 using NestU.WebApp.Models.Rooms;
+using NestU.WebApp.Models.Stats;
 using NestU.WebApp.Models.Support;
 
 namespace NestU.WebApp.ApiClients;
@@ -126,6 +127,15 @@ public class LandlordApiClient : ApiClientBase
     // Sự cố
     public Task<ApiResult<List<MaintenanceDto>>> MaintenanceAsync(string? status = null) => GetAsync<List<MaintenanceDto>>("api/landlord/maintenance-requests" + Q(status));
     public Task<ApiResult> UpdateMaintenanceAsync(UpdateMaintenanceStatusDto m) => PutAsync($"api/landlord/maintenance-requests/{m.Id}/status", new { m.Status, m.Note, m.AssetCondition });
+
+    // Thống kê & Doanh thu
+    public Task<ApiResult<LandlordStatsDto>> StatsAsync(int? year = null, int? houseId = null)
+    {
+        var q = new List<string>();
+        if (year.HasValue) q.Add($"year={year.Value}");
+        if (houseId.HasValue) q.Add($"houseId={houseId.Value}");
+        return GetAsync<LandlordStatsDto>("api/landlord/stats/revenue" + (q.Count > 0 ? "?" + string.Join("&", q) : ""));
+    }
 
     private static string Q(string? v, string name = "status") => string.IsNullOrEmpty(v) ? "" : $"?{name}={Uri.EscapeDataString(v)}";
 }
