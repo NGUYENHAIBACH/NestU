@@ -182,8 +182,8 @@ public class RoomService : IRoomService
             throw ApiException.Conflict("Phòng đã có hợp đồng, không thể xóa. Hãy đặt trạng thái Đang sửa nếu không cho thuê.");
         if (await _db.RentalRequests.AnyAsync(r => r.RoomId == roomId && r.Status == RentalRequestStatus.Pending))
             throw ApiException.Conflict("Phòng đang có yêu cầu thuê chờ duyệt, không thể xóa.");
-        if (await _db.ViewingAppointments.AnyAsync(a => a.RoomId == roomId && a.Status == AppointmentStatus.Pending))
-            throw ApiException.Conflict("Phòng đang có lịch xem chờ xác nhận, không thể xóa.");
+        if (await _db.ViewingAppointments.AnyAsync(a => a.RoomId == roomId && (a.Status == AppointmentStatus.Pending || (a.Status == AppointmentStatus.Confirmed && a.ScheduledAt > DateTime.Now))))
+            throw ApiException.Conflict("Phòng đang có lịch xem chờ hoặc đã xác nhận, không thể xóa.");
 
         await using var tx = await _db.Database.BeginTransactionAsync();
         var requests = await _db.RentalRequests.Where(r => r.RoomId == roomId).ToListAsync();

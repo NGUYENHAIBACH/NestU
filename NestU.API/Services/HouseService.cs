@@ -189,8 +189,13 @@ public class HouseService : IHouseService
     public async Task<ServiceDto> CreateServiceAsync(string landlordId, ServiceDto dto)
     {
         await GetOwnedHouseAsync(landlordId, dto.BoardingHouseId);
+        if (dto.Price < 0) throw ApiException.BadRequest("Giá dịch vụ phải lớn hơn hoặc bằng 0.");
         if (!Enum.TryParse<ServiceUnit>(dto.Unit, true, out var sUnit)) throw ApiException.BadRequest("Đơn vị dịch vụ không hợp lệ (PerMonth, PerPerson).");
-        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = dto.Name.Trim(), Price = dto.Price, Unit = sUnit, IsActive = dto.IsActive };
+        var trimmedName = dto.Name.Trim();
+        if (await _db.Services.AnyAsync(s => s.BoardingHouseId == dto.BoardingHouseId && s.Name.ToLower() == trimmedName.ToLower()))
+            throw ApiException.Conflict($"Dịch vụ '{trimmedName}' đã tồn tại trong nhà trọ này.");
+
+        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = trimmedName, Price = dto.Price, Unit = sUnit, IsActive = dto.IsActive };
         _db.Services.Add(s);
         await _db.SaveChangesAsync();
         dto.Id = s.Id;
@@ -201,8 +206,13 @@ public class HouseService : IHouseService
     {
         var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
         if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
+        if (dto.Price < 0) throw ApiException.BadRequest("Giá dịch vụ phải lớn hơn hoặc bằng 0.");
         if (!Enum.TryParse<ServiceUnit>(dto.Unit, true, out var sUnitUpdate)) throw ApiException.BadRequest("Đơn vị dịch vụ không hợp lệ (PerMonth, PerPerson).");
-        s.Name = dto.Name.Trim(); s.Price = dto.Price; s.Unit = sUnitUpdate; s.IsActive = dto.IsActive;
+        var trimmedName = dto.Name.Trim();
+        if (await _db.Services.AnyAsync(x => x.BoardingHouseId == s.BoardingHouseId && x.Id != id && x.Name.ToLower() == trimmedName.ToLower()))
+            throw ApiException.Conflict($"Dịch vụ '{trimmedName}' đã tồn tại trong nhà trọ này.");
+
+        s.Name = trimmedName; s.Price = dto.Price; s.Unit = sUnitUpdate; s.IsActive = dto.IsActive;
         await _db.SaveChangesAsync();
     }
 

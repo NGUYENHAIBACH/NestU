@@ -63,9 +63,19 @@ public class RentalService : IRentalService
     public async Task<AppointmentDto> CreateAppointmentAsync(string tenantId, CreateAppointmentDto dto)
     {
         var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == dto.RoomId) ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (room.BoardingHouse.LandlordId == tenantId)
+            throw ApiException.BadRequest("Bạn không thể đặt lịch xem phòng do chính mình quản lý.");
+
+        var profile = await _db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == tenantId)
+            ?? throw ApiException.BadRequest("Vui lòng hoàn thiện hồ sơ người thuê trước khi đặt lịch xem.");
+
         if (room.BoardingHouse.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC, chưa nhận lịch xem.");
         if (room.Status != RoomStatus.Available) throw ApiException.BadRequest("Phòng hiện không còn trống.");
+        if (room.BoardingHouse.AllowedTenantType == AllowedTenantType.StudentOnly && !profile.IsStudent)
+            throw ApiException.BadRequest("Nhà trọ này chỉ nhận sinh viên, bạn không thể đặt lịch xem.");
+
         if (dto.ScheduledAt < DateTime.Now.AddHours(1)) throw ApiException.BadRequest("Thời gian xem phải sau thời điểm hiện tại ít nhất 1 giờ.");
+        if (dto.ScheduledAt > DateTime.Now.AddDays(30)) throw ApiException.BadRequest("Thời gian xem phòng chỉ được đặt trước tối đa 30 ngày.");
         if (await _db.ViewingAppointments.AnyAsync(a => a.TenantId == tenantId && a.RoomId == dto.RoomId && a.Status == AppointmentStatus.Pending))
             throw ApiException.Conflict("Bạn đã có lịch xem đang chờ cho phòng này.");
 
@@ -97,6 +107,15 @@ public class RentalService : IRentalService
         if (a.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (a.Status != AppointmentStatus.Pending) throw ApiException.Conflict("Lịch này đã được xử lý.");
         if (!confirm && string.IsNullOrWhiteSpace(reason)) throw ApiException.BadRequest("Vui lòng nhập lý do từ chối.");
+
+        if (confirm)
+        {
+            if (a.Room.Status != RoomStatus.Available)
+                throw ApiException.Conflict("Phòng hiện không còn trống để xác nhận lịch xem.");
+            if (a.ScheduledAt < DateTime.Now)
+                throw ApiException.BadRequest("Thời gian hẹn xem phòng đã qua, không thể xác nhận lịch xem.");
+        }
+
         a.Status = confirm ? AppointmentStatus.Confirmed : AppointmentStatus.Rejected;
         a.RejectReason = confirm ? null : reason;
         await _db.SaveChangesAsync();
@@ -143,6 +162,8 @@ public class RentalService : IRentalService
     public async Task<RentalRequestDto> CreateRequestAsync(string tenantId, CreateRentalRequestDto dto)
     {
         var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == dto.RoomId) ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (room.BoardingHouse.LandlordId == tenantId)
+            throw ApiException.BadRequest("Bạn không thể gửi yêu cầu thuê phòng do chính mình quản lý.");
         var profile = await _db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == tenantId) ?? throw ApiException.BadRequest("Vui lòng hoàn thiện hồ sơ người thuê trước.");
 
         // Quy định 1: chỉ nhà trọ Active (đã duyệt PCCC)
