@@ -96,6 +96,8 @@ public class ContractChangeRequestConfiguration : IEntityTypeConfiguration<Contr
         b.Property(x => x.Reason).HasMaxLength(500);
         b.Property(x => x.DecisionNote).HasMaxLength(500);
         b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.ContractId).IsUnique().HasFilter("[Status] = 'Pending'")
+            .HasDatabaseName("UX_ContractChangeRequest_OnePendingPerContract");
     }
 }
 

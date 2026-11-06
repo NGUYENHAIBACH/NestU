@@ -75,8 +75,15 @@ public class AdminService : IAdminService
 
         if (current.Contains(Roles.Landlord) && await _db.BoardingHouses.AnyAsync(h => h.LandlordId == userId))
             throw ApiException.Conflict("Chủ trọ đang sở hữu nhà trọ, không đổi role được.");
-        if (current.Contains(Roles.Tenant) && await _db.Contracts.AnyAsync(c => c.TenantId == userId && c.Status == ContractStatus.Active))
-            throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực, không đổi role được.");
+        if (current.Contains(Roles.Tenant))
+        {
+            if (await _db.Contracts.AnyAsync(c => c.TenantId == userId && c.Status == ContractStatus.Active))
+                throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực, không đổi role được.");
+            if (await _db.RentalRequests.AnyAsync(r => r.TenantId == userId && r.Status == RentalRequestStatus.Pending))
+                throw new BusinessRuleException("Người thuê đang có yêu cầu thuê phòng chờ duyệt, không thể đổi role.");
+            if (await _db.ViewingAppointments.AnyAsync(a => a.TenantId == userId && a.Status == AppointmentStatus.Pending))
+                throw new BusinessRuleException("Người thuê đang có lịch xem phòng chờ xác nhận, không thể đổi role.");
+        }
 
         await using var tx = await _db.Database.BeginTransactionAsync();
         await _users.RemoveFromRolesAsync(u, current);
@@ -211,8 +218,14 @@ public class AdminService : IAdminService
             };
             if (landlordUserId is not null)
             {
-                var u = await _db.Users.FirstAsync(x => x.Id == landlordUserId);
-                u.IsLocked = true;
+                var u = await _users.FindByIdAsync(landlordUserId);
+                if (u is not null)
+                {
+                    if (await _users.IsInRoleAsync(u, Roles.Admin))
+                        throw new BusinessRuleException("Không thể khóa tài khoản có vai trò Quản trị viên (Admin).");
+                    u.IsLocked = true;
+                    await _users.UpdateAsync(u);
+                }
             }
         }
         await _db.SaveChangesAsync();

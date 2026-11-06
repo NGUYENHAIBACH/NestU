@@ -232,6 +232,8 @@ public class RoomService : IRoomService
     public async Task<RoomAssetDto> AddAssetAsync(string landlordId, int roomId, RoomAssetDto dto)
     {
         await GetOwnedRoomAsync(landlordId, roomId);
+        if (dto.Quantity < 1) throw new BusinessRuleException("Số lượng tài sản phải từ 1 trở lên.");
+        if (dto.EstimatedValue < 0) throw new BusinessRuleException("Giá trị ước tính tài sản không được âm.");
         if (!await _db.AssetTypes.AnyAsync(t => t.Id == dto.AssetTypeId)) throw ApiException.BadRequest("Loại tài sản không tồn tại.");
         if (!Enum.TryParse<AssetCondition>(dto.Condition, true, out var aCond))
             throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ (Good, Damaged, Broken).");
@@ -250,6 +252,8 @@ public class RoomService : IRoomService
     public async Task UpdateAssetAsync(string landlordId, int roomId, int assetId, RoomAssetDto dto)
     {
         await GetOwnedRoomAsync(landlordId, roomId);
+        if (dto.Quantity < 1) throw new BusinessRuleException("Số lượng tài sản phải từ 1 trở lên.");
+        if (dto.EstimatedValue < 0) throw new BusinessRuleException("Giá trị ước tính tài sản không được âm.");
         var a = await _db.RoomAssets.FirstOrDefaultAsync(x => x.Id == assetId && x.RoomId == roomId) ?? throw ApiException.NotFound("Không tìm thấy tài sản.");
         if (!await _db.AssetTypes.AnyAsync(t => t.Id == dto.AssetTypeId)) throw ApiException.BadRequest("Loại tài sản không tồn tại.");
         if (!Enum.TryParse<AssetCondition>(dto.Condition, true, out var aCondUpdate))
@@ -325,6 +329,10 @@ public class RoomService : IRoomService
         }
         if (assets.Count > 0)
         {
+            if (assets.Any(a => a.Quantity < 1))
+                throw new BusinessRuleException("Số lượng tài sản trong danh sách phải từ 1 trở lên.");
+            if (assets.Any(a => a.EstimatedValue < 0))
+                throw new BusinessRuleException("Giá trị ước tính tài sản không được âm.");
             var typeIds = assets.Select(a => a.AssetTypeId).Distinct().ToList();
             var ok = await _db.AssetTypes.CountAsync(t => typeIds.Contains(t.Id));
             if (ok != typeIds.Count) throw ApiException.BadRequest("Có loại tài sản không tồn tại.");

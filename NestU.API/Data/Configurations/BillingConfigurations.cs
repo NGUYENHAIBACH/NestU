@@ -90,6 +90,8 @@ public class ReportConfiguration : IEntityTypeConfiguration<Report>
         b.Property(x => x.Reason).HasMaxLength(1000).IsRequired();
         b.Property(x => x.ResolveNote).HasMaxLength(500);
         b.HasIndex(x => x.Status);
+        b.HasIndex(x => new { x.ReporterId, x.TargetType, x.TargetId }).IsUnique().HasFilter("[Status] = 'Open'")
+            .HasDatabaseName("UX_Report_OneOpenPerReporterAndTarget");
         b.HasOne(x => x.Reporter).WithMany().HasForeignKey(x => x.ReporterId).OnDelete(DeleteBehavior.Restrict);
     }
 }

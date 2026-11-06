@@ -231,6 +231,13 @@ public class RentalService : IRentalService
         }
         if (dto.Members.Count > room.Capacity - 1) throw ApiException.BadRequest("Số người ở cùng vượt sức chứa phòng.");
 
+        var tenantCitizenId = req.Tenant.TenantProfile?.CitizenId;
+        var memberCitizenIds = dto.Members.Select(m => m.CitizenId.Trim()).ToList();
+        if (memberCitizenIds.Distinct().Count() != memberCitizenIds.Count)
+            throw new BusinessRuleException("Danh sách thành viên ở cùng có số CCCD bị trùng lặp.");
+        if (tenantCitizenId is not null && memberCitizenIds.Contains(tenantCitizenId))
+            throw new BusinessRuleException("CCCD của thành viên ở cùng không được trùng với người đại diện đứng tên hợp đồng.");
+
         var assets = await _db.RoomAssets.AsNoTracking().Where(a => a.RoomId == room.Id).ToListAsync();
 
         await using var tx = await _db.Database.BeginTransactionAsync();
