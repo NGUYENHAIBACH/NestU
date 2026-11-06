@@ -250,7 +250,7 @@ public class HouseService : IHouseService
         h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;
         h.ElectricityPrice = d.ElectricityPrice; h.WaterPrice = d.WaterPrice;
         if (!Enum.TryParse<WaterBillingType>(d.WaterBillingType, true, out var wType)) throw ApiException.BadRequest("Hình thức tính tiền nước không hợp lệ (PerM3, PerPerson).");
-        if (!Enum.TryParse<AllowedTenantType>(d.AllowedTenantType, true, out var tType)) throw ApiException.BadRequest("Đối tượng cho thuê không hợp lệ (All, StudentOnly, WorkingOnly).");
+        if (!Enum.TryParse<AllowedTenantType>(d.AllowedTenantType, true, out var tType)) throw ApiException.BadRequest("Đối tượng cho thuê không hợp lệ (All, StudentOnly).");
         h.WaterBillingType = wType;
         h.AllowedTenantType = tType;
         h.Description = d.Description; h.BankCode = d.BankCode; h.BankAccount = d.BankAccount; h.AccountName = d.AccountName;
