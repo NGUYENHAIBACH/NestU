@@ -406,6 +406,10 @@ public class RentalService : IRentalService
         var validIds = checkIn.Select(a => a.RoomAssetId).ToHashSet();
         if (dto.Items.Any(i => !validIds.Contains(i.RoomAssetId))) throw ApiException.BadRequest("Có tài sản không nằm trong biên bản nhận phòng.");
 
+        var duplicateAssetIds = dto.Items.GroupBy(i => i.RoomAssetId).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        if (duplicateAssetIds.Count > 0)
+            throw new BusinessRuleException($"Phát hiện tài sản (ID: {string.Join(", ", duplicateAssetIds)}) bị gửi lặp lại trong danh sách trả phòng. Vui lòng kiểm tra lại để tránh nhân đôi tiền khấu trừ.");
+
         await using var tx = await _db.Database.BeginTransactionAsync();
         var existing = await _db.ContractAssets.Where(a => a.ContractId == contractId && a.Stage == AssetStage.CheckOut).ToListAsync();
         _db.ContractAssets.RemoveRange(existing);   // cho phép ghi lại biên bản trả phòng trước khi quyết toán
