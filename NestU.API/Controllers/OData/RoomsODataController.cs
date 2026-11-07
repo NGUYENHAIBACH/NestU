@@ -46,7 +46,7 @@ public static class RoomQueries
                 ThumbnailUrl = r.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault(),
                 HouseId = r.BoardingHouseId,
                 HouseName = r.BoardingHouse.Name,
-                Address = r.BoardingHouse.Address,
+                Address = r.Address ?? r.BoardingHouse.Address,
                 AreaId = r.BoardingHouse.AreaId,
                 AreaName = r.BoardingHouse.Area.Name,
                 ElectricityPrice = r.BoardingHouse.ElectricityPrice,

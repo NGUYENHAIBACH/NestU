@@ -49,7 +49,7 @@ public class RentalService : IRentalService
     // =====================================================================
     private static AppointmentDto MapAppointment(ViewingAppointment a) => new()
     {
-        Id = a.Id, RoomId = a.RoomId, RoomNumber = a.Room.RoomNumber, HouseName = a.Room.BoardingHouse.Name, Address = a.Room.BoardingHouse.Address,
+        Id = a.Id, RoomId = a.RoomId, RoomNumber = a.Room.RoomNumber, HouseName = a.Room.BoardingHouse.Name, Address = a.Room.Address ?? a.Room.BoardingHouse.Address,
         TenantId = a.TenantId, TenantName = a.Tenant.FullName, TenantPhone = a.Tenant.PhoneNumber, ScheduledAt = a.ScheduledAt,
         Status = a.Status.ToString(), Note = a.Note, RejectReason = a.RejectReason, CreatedAt = a.CreatedAt
     };
@@ -319,7 +319,7 @@ public class RentalService : IRentalService
         return rows.Select(c => new ContractDto
         {
             Id = c.Id, RoomId = c.RoomId, RoomNumber = c.Room.RoomNumber, Floor = c.Room.Floor, HouseId = c.Room.BoardingHouseId,
-            HouseName = c.Room.BoardingHouse.Name, Address = c.Room.BoardingHouse.Address, TenantId = c.TenantId, TenantName = c.Tenant.FullName,
+            HouseName = c.Room.BoardingHouse.Name, Address = c.Room.Address ?? c.Room.BoardingHouse.Address, TenantId = c.TenantId, TenantName = c.Tenant.FullName,
             TenantPhone = c.Tenant.PhoneNumber, LandlordName = c.Room.BoardingHouse.Landlord.FullName, LandlordPhone = c.Room.BoardingHouse.Landlord.PhoneNumber,
             StartDate = c.StartDate, EndDate = c.EndDate, MonthlyRent = c.MonthlyRent, DepositAmount = c.DepositAmount, DepositPaidAt = c.DepositPaidAt,
             InitialElectricIndex = c.InitialElectricIndex, InitialWaterIndex = c.InitialWaterIndex,
