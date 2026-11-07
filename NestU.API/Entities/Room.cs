@@ -14,6 +14,7 @@ public class Room
     public decimal DepositAmount { get; set; }   // mặc định = 1 tháng tiền phòng
     public int Capacity { get; set; } = 1;
     public RoomStatus Status { get; set; } = RoomStatus.Available;
+    public string? Address { get; set; }
     public string? Description { get; set; }
     public int ViewCount { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();

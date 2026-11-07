@@ -17,6 +17,7 @@ public class RoomConfiguration : IEntityTypeConfiguration<Room>
             t.HasCheckConstraint("CK_Room_Capacity", "[Capacity] >= 1 AND [Capacity] <= 10");
         });
         b.Property(x => x.RoomNumber).HasMaxLength(10).IsRequired();
+        b.Property(x => x.Address).HasMaxLength(255);
         b.Property(x => x.Description).HasMaxLength(2000);
         b.Property(x => x.RowVersion).IsRowVersion();
         // Số phòng không trùng trong một nhà trọ

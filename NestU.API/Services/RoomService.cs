@@ -39,7 +39,7 @@ public class RoomService : IRoomService
         Capacity = r.Capacity, Status = r.Status == RoomStatus.Available ? "Available" : r.Status == RoomStatus.Occupied ? "Occupied" : "Maintenance",
         AvailabilityLabel = r.Status == RoomStatus.Available ? "Còn phòng" : r.Status == RoomStatus.Occupied ? "Hết phòng" : "Đang sửa",
         ViewCount = r.ViewCount, ThumbnailUrl = r.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault(),
-        HouseId = r.BoardingHouseId, HouseName = r.BoardingHouse.Name, Address = r.BoardingHouse.Address,
+        HouseId = r.BoardingHouseId, HouseName = r.BoardingHouse.Name, Address = r.Address ?? r.BoardingHouse.Address,
         AreaId = r.BoardingHouse.AreaId, AreaName = r.BoardingHouse.Area.Name, ElectricityPrice = r.BoardingHouse.ElectricityPrice,
         StudentOnly = r.BoardingHouse.AllowedTenantType == AllowedTenantType.StudentOnly,
         FireSafetyApproved = r.BoardingHouse.Status == HouseStatus.Active, CreatedAt = r.CreatedAt
@@ -63,7 +63,7 @@ public class RoomService : IRoomService
             Capacity = r.Capacity, Status = r.Status.ToString(),
             AvailabilityLabel = r.Status == RoomStatus.Available ? "Còn phòng" : r.Status == RoomStatus.Occupied ? "Hết phòng" : "Đang sửa",
             ViewCount = r.ViewCount, ThumbnailUrl = r.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault(),
-            HouseId = h.Id, HouseName = h.Name, Address = h.Address, AreaId = h.AreaId, AreaName = h.Area.Name,
+            HouseId = h.Id, HouseName = h.Name, Address = r.Address ?? h.Address, AreaId = h.AreaId, AreaName = h.Area.Name,
             ElectricityPrice = h.ElectricityPrice, StudentOnly = h.AllowedTenantType == AllowedTenantType.StudentOnly,
             FireSafetyApproved = h.Status == HouseStatus.Active, CreatedAt = r.CreatedAt,
             Description = r.Description, WaterPrice = h.WaterPrice, WaterBillingType = h.WaterBillingType.ToString(),
@@ -111,7 +111,7 @@ public class RoomService : IRoomService
         var room = new Room
         {
             BoardingHouseId = house.Id, RoomNumber = dto.RoomNumber.Trim(), Floor = dto.Floor, Area = dto.Area, Price = dto.Price,
-            DepositAmount = dto.DepositAmount ?? dto.Price, Capacity = dto.Capacity, Description = dto.Description
+            DepositAmount = dto.DepositAmount ?? dto.Price, Capacity = dto.Capacity, Address = dto.Address, Description = dto.Description
         };
         ApplyAmenities(room, dto.AmenityIds);
         ApplyImages(room, dto.ImageUrls);
@@ -141,7 +141,7 @@ public class RoomService : IRoomService
             var room = new Room
             {
                 BoardingHouseId = houseId, RoomNumber = num, Floor = dto.Floor, Area = dto.Area, Price = dto.Price,
-                DepositAmount = dto.DepositAmount ?? dto.Price, Capacity = dto.Capacity, Description = dto.Description
+                DepositAmount = dto.DepositAmount ?? dto.Price, Capacity = dto.Capacity, Address = dto.Address, Description = dto.Description
             };
             ApplyAmenities(room, dto.AmenityIds);
             foreach (var a in dto.Assets) room.Assets.Add(new RoomAsset { AssetTypeId = a.AssetTypeId, Name = a.Name.Trim(), Quantity = a.Quantity, EstimatedValue = a.EstimatedValue });
@@ -169,7 +169,7 @@ public class RoomService : IRoomService
         await ValidateAmenitiesAndAssets(dto.AmenityIds, new());
 
         room.RoomNumber = dto.RoomNumber.Trim(); room.Floor = dto.Floor; room.Area = dto.Area; room.Price = dto.Price;
-        room.DepositAmount = dto.DepositAmount; room.Capacity = dto.Capacity; room.Description = dto.Description;
+        room.DepositAmount = dto.DepositAmount; room.Capacity = dto.Capacity; room.Address = dto.Address; room.Description = dto.Description;
         room.RoomAmenities.Clear(); ApplyAmenities(room, dto.AmenityIds);
         room.Images.Clear(); ApplyImages(room, dto.ImageUrls);
         await _db.SaveChangesAsync();
