@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using NestU.API.Data;
 using NestU.API.DTOs.Auth;
 using NestU.API.Entities;
@@ -14,12 +15,21 @@ public class AuthService : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly NestUDbContext _db;
     private readonly JwtTokenGenerator _jwt;
+    private readonly IMemoryCache _cache;
+    private readonly IEmailService _email;
 
-    public AuthService(UserManager<ApplicationUser> userManager, NestUDbContext db, JwtTokenGenerator jwt)
+    public AuthService(
+        UserManager<ApplicationUser> userManager,
+        NestUDbContext db,
+        JwtTokenGenerator jwt,
+        IMemoryCache cache,
+        IEmailService email)
     {
         _userManager = userManager;
         _db = db;
         _jwt = jwt;
+        _cache = cache;
+        _email = email;
     }
 
     public async Task<UserDto> RegisterAsync(RegisterDto dto)
@@ -132,6 +142,50 @@ public class AuthService : IAuthService
                 .Where(p => p.UserId == userId).Select(p => p.IsStudent).FirstOrDefaultAsync();
 
         return dto;
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user is null)
+            throw ApiException.BadRequest("Email này chưa được đăng ký tài khoản trong hệ thống.");
+
+        if (user.IsLocked)
+            throw ApiException.Forbidden("Tài khoản này đã bị khóa. Vui lòng liên hệ quản trị viên.");
+
+        // Sinh mã OTP 6 chữ số ngẫu nhiên
+        var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6");
+        var cacheKey = $"pwd_otp_{email}";
+
+        // Lưu mã vào bộ nhớ đệm hiệu lực 5 phút
+        _cache.Set(cacheKey, otp, TimeSpan.FromMinutes(5));
+
+        // Gửi email
+        await _email.SendPasswordResetOtpAsync(user.Email!, otp);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var cacheKey = $"pwd_otp_{email}";
+
+        if (!_cache.TryGetValue<string>(cacheKey, out var cachedOtp) || cachedOtp != dto.Otp.Trim())
+            throw ApiException.BadRequest("Mã OTP không chính xác hoặc đã hết hạn (mã chỉ có hiệu lực trong 5 phút).");
+
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user is null)
+            throw ApiException.NotFound("Không tìm thấy tài khoản người dùng.");
+
+        if (user.IsLocked)
+            throw ApiException.Forbidden("Tài khoản này đã bị khóa. Vui lòng liên hệ quản trị viên.");
+
+        var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, resetToken, dto.NewPassword);
+        if (!result.Succeeded)
+            throw ApiException.BadRequest(string.Join(" ", result.Errors.Select(e => TranslateIdentityError(e))));
+
+        _cache.Remove(cacheKey);
     }
 
     private static string TranslateIdentityError(IdentityError e) => e.Code switch

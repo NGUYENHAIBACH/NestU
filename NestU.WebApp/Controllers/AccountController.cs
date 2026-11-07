@@ -85,6 +85,47 @@ public class AccountController : Controller
         return RedirectToAction(nameof(Login));
     }
 
+    [HttpGet]
+    public IActionResult ForgotPassword() => View(new ForgotPasswordModel());
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await _auth.ForgotPasswordAsync(model);
+        if (!result.Success)
+        {
+            result.AddToModelState(ModelState);
+            return View(model);
+        }
+
+        TempData["Success"] = "Mã xác thực OTP đã được gửi đến email của bạn (hiệu lực trong 5 phút).";
+        return RedirectToAction(nameof(ResetPassword), new { email = model.Email });
+    }
+
+    [HttpGet]
+    public IActionResult ResetPassword(string? email)
+    {
+        return View(new ResetPasswordModel { Email = email ?? string.Empty });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(ResetPasswordModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await _auth.ResetPasswordAsync(model);
+        if (!result.Success)
+        {
+            result.AddToModelState(ModelState);
+            return View(model);
+        }
+
+        TempData["Success"] = "Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.";
+        return RedirectToAction(nameof(Login));
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     [Authorize]
     public async Task<IActionResult> Logout()

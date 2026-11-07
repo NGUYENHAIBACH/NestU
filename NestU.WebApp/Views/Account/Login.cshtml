@@ -15,8 +15,11 @@
                     <span asp-validation-for="Email" class="text-danger small"></span>
                 </div>
                 <div class="mb-3">
-                    <label asp-for="Password" class="form-label"></label>
-                    <input asp-for="Password" class="form-control" autocomplete="current-password" />
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label asp-for="Password" class="form-label mb-0"></label>
+                        <a asp-action="ForgotPassword" class="small text-decoration-none">Quên mật khẩu?</a>
+                    </div>
+                    <input asp-for="Password" class="form-control mt-1" autocomplete="current-password" />
                     <span asp-validation-for="Password" class="text-danger small"></span>
                 </div>
                 <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>

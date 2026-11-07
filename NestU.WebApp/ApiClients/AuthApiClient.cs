@@ -18,4 +18,10 @@ public class AuthApiClient : ApiClientBase
         });
 
     public Task<ApiResult<UserDto>> MeAsync() => GetAsync<UserDto>("api/auth/me");
+
+    public Task<ApiResult> ForgotPasswordAsync(ForgotPasswordModel m)
+        => PostAsync("api/auth/forgot-password", new { m.Email });
+
+    public Task<ApiResult> ResetPasswordAsync(ResetPasswordModel m)
+        => PostAsync("api/auth/reset-password", new { m.Email, m.Otp, m.NewPassword });
 }

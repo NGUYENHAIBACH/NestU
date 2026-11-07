@@ -67,6 +67,7 @@ builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHand
 // ---------- Services ----------
 builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileStorage, FileStorage>();
 builder.Services.AddScoped<IHouseService, HouseService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
