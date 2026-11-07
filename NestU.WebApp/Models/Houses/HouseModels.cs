@@ -8,7 +8,9 @@ public class CreateHouseDto
     public int Id { get; set; }
     [Required(ErrorMessage = "Tên nhà trọ là bắt buộc")] [StringLength(200)] [Display(Name = "Tên nhà trọ")] public string Name { get; set; } = string.Empty;
     [Required(ErrorMessage = "Địa chỉ là bắt buộc")] [StringLength(300)] [Display(Name = "Địa chỉ")] public string Address { get; set; } = string.Empty;
-    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn khu vực")] [Display(Name = "Khu vực")] public int AreaId { get; set; }
+    // Không bắt buộc: để trống thì API suy ra khu vực từ DistrictName (quận/huyện trong địa chỉ)
+    [Range(1, int.MaxValue, ErrorMessage = "Khu vực không hợp lệ")] [Display(Name = "Khu vực")] public int? AreaId { get; set; }
+    [StringLength(100)] public string? DistrictName { get; set; }
     [Range(-90, 90)] [Display(Name = "Vĩ độ")] public double? Latitude { get; set; }
     [Range(-180, 180)] [Display(Name = "Kinh độ")] public double? Longitude { get; set; }
     [Range(1, 50, ErrorMessage = "Số tầng từ 1 đến 50")] [Display(Name = "Số tầng")] public int TotalFloors { get; set; } = 1;

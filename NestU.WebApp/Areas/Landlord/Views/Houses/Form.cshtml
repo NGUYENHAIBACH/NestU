@@ -28,10 +28,11 @@
             <div class="col-md-4 mb-3">
                 <label asp-for="AreaId" class="form-label fw-semibold"></label>
                 <select asp-for="AreaId" asp-items="ViewBag.Areas" class="form-select" id="areaSelect">
-                    <option value="">-- Chọn khu vực --</option>
+                    <option value="">-- Tự động theo Quận / Huyện --</option>
                 </select>
+                <input type="hidden" asp-for="DistrictName" id="districtName" />
                 <span asp-validation-for="AreaId" class="text-danger small"></span>
-                <div class="form-text small">Khu vực sinh viên tìm kiếm phòng trọ</div>
+                <div class="form-text small" id="areaHint">Tự chọn theo Quận / Huyện bên dưới; quận chưa có sẽ được thêm khi lưu. Có thể đổi lại nếu muốn.</div>
             </div>
         </div>
 
@@ -266,6 +267,18 @@
             const fullAddressInput = document.getElementById("fullAddress");
             const btnRefreshAddr = document.getElementById("btnRefreshAddr");
             const areaSelect = document.getElementById("areaSelect");
+            const districtNameInput = document.getElementById("districtName");
+            const areaHint = document.getElementById("areaHint");
+
+            // "Quận Bình Thạnh" → "Bình Thạnh", "Thành phố Thủ Đức" → "Thủ Đức", "Quận 12" giữ nguyên
+            function normalizeArea(raw) {
+                if (!raw) return "";
+                const name = raw.normalize("NFC").trim().replace(/\s+/g, " ");
+                const rest = name.replace(/^(quận|huyện|thị xã|thành phố)\s+/iu, "");
+                if (!rest) return name;
+                return /^\d+$/.test(rest) ? "Quận " + rest : rest;
+            }
+            const areaKey = raw => normalizeArea(raw).toLowerCase();
 
             let isUserManualEditing = @(edit && !string.IsNullOrEmpty(Model.Address) ? "true" : "false");
 
@@ -293,6 +306,9 @@
                 districtSelect.disabled = true;
                 wardSelect.innerHTML = '<option value="">-- Chọn Quận/Huyện trước --</option>';
                 wardSelect.disabled = true;
+                // Đổi tỉnh thì quận cũ không còn đúng → bỏ khu vực đã suy ra, chờ chọn quận mới
+                districtNameInput.value = "";
+                if (areaSelect) areaSelect.selectedIndex = 0;
 
                 if (!provCode) {
                     districtSelect.innerHTML = '<option value="">-- Chọn Tỉnh/TP trước --</option>';
@@ -331,16 +347,20 @@
                 wardSelect.innerHTML = '<option value="">-- Đang tải Phường/Xã... --</option>';
                 wardSelect.disabled = true;
 
-                // Tự động map với AreaId trong hệ thống nếu có
-                if (distName && areaSelect) {
-                    const cleanDistName = distName.replace(/^(Quận|Huyện|Thị xã|Thành phố)\s+/i, '').trim().toLowerCase();
+                // Khu vực suy ra từ quận: so khớp chính xác theo tên đã chuẩn hóa (cùng quy tắc với AreaNames ở API).
+                // Không khớp → để trống, API tạo khu vực mới từ DistrictName khi lưu.
+                const pickedDistrict = distCode ? distName : "";
+                districtNameInput.value = pickedDistrict;
+                if (areaSelect) {
+                    const key = areaKey(pickedDistrict);
+                    let matched = 0;
                     for (let i = 0; i < areaSelect.options.length; i++) {
-                        const areaText = areaSelect.options[i].text.toLowerCase();
-                        if (areaText.includes(cleanDistName) || cleanDistName.includes(areaText)) {
-                            areaSelect.selectedIndex = i;
-                            break;
-                        }
+                        if (key && areaSelect.options[i].value && areaKey(areaSelect.options[i].text) === key) { matched = i; break; }
                     }
+                    areaSelect.selectedIndex = matched;
+                    areaHint.textContent = !key ? "Tự chọn theo Quận / Huyện bên dưới; quận chưa có sẽ được thêm khi lưu. Có thể đổi lại nếu muốn."
+                        : matched ? `Đã chọn khu vực "${areaSelect.options[matched].text}" theo quận. Có thể đổi lại nếu muốn.`
+                        : `Khu vực "${normalizeArea(pickedDistrict)}" chưa có, hệ thống sẽ tự thêm khi lưu.`;
                 }
 
                 if (!distCode) {
