@@ -26,7 +26,6 @@ public class CreateRoomDto
     [Range(1, 10, ErrorMessage = "Sức chứa từ 1 đến 10 người")]
     public int Capacity { get; set; } = 1;
 
-    [StringLength(255)] public string? Address { get; set; }
     [StringLength(2000)] public string? Description { get; set; }
     public List<int> AmenityIds { get; set; } = new();
     public List<string> ImageUrls { get; set; } = new();
@@ -42,7 +41,6 @@ public class UpdateRoomDto
     [Range(1, 1_000_000_000, ErrorMessage = "Giá phòng phải lớn hơn 0")] public decimal Price { get; set; }
     [Range(0, 1_000_000_000)] public decimal DepositAmount { get; set; }
     [Range(1, 10, ErrorMessage = "Sức chứa từ 1 đến 10 người")] public int Capacity { get; set; } = 1;
-    [StringLength(255)] public string? Address { get; set; }
     [StringLength(2000)] public string? Description { get; set; }
     public List<int> AmenityIds { get; set; } = new();
     public List<string> ImageUrls { get; set; } = new();
@@ -57,7 +55,6 @@ public class BulkCreateRoomsDto
     [Range(1, 1_000_000_000, ErrorMessage = "Giá phòng phải lớn hơn 0")] public decimal Price { get; set; }
     [Range(0, 1_000_000_000)] public decimal? DepositAmount { get; set; }
     [Range(1, 10, ErrorMessage = "Sức chứa từ 1 đến 10 người")] public int Capacity { get; set; } = 1;
-    [StringLength(255)] public string? Address { get; set; }
     [StringLength(2000)] public string? Description { get; set; }
     public List<int> AmenityIds { get; set; } = new();
     public List<AssetTemplateDto> Assets { get; set; } = new();
