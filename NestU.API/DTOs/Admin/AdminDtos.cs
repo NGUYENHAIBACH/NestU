@@ -96,6 +96,20 @@ public class CatalogItemDto
     [Range(-180, 180)] public double? Longitude { get; set; }
     // Amenity
     [StringLength(50)] public string? Icon { get; set; }
+    // Area: số nhà trọ đang dùng khu vực (chỉ đọc)
+    public int? HouseCount { get; set; }
+}
+
+public class MergeAreaDto
+{
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn khu vực đích")] public int TargetId { get; set; }
+}
+
+public class MergeAreaResultDto
+{
+    public int TargetId { get; set; }
+    public string TargetName { get; set; } = string.Empty;
+    public int MovedHouses { get; set; }
 }
 
 public class AdminStatsDto

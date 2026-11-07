@@ -27,6 +27,7 @@ public interface IAdminService
     Task<CatalogItemDto> CreateCatalogAsync(string type, CatalogItemDto dto);
     Task UpdateCatalogAsync(string type, int id, CatalogItemDto dto);
     Task DeleteCatalogAsync(string type, int id);
+    Task<MergeAreaResultDto> MergeAreaAsync(int sourceId, int targetId);
 
     Task<AdminStatsDto> GetStatsAsync();
 }

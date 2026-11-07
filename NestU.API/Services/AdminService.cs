@@ -261,7 +261,8 @@ public class AdminService : IAdminService
     // ----- Danh mục -----
     public async Task<List<CatalogItemDto>> GetCatalogAsync(string type) => type switch
     {
-        "areas" => await _db.Areas.AsNoTracking().OrderBy(a => a.Name).Select(a => new CatalogItemDto { Id = a.Id, Name = a.Name }).ToListAsync(),
+        "areas" => await _db.Areas.AsNoTracking().OrderBy(a => a.Name)
+            .Select(a => new CatalogItemDto { Id = a.Id, Name = a.Name, HouseCount = a.BoardingHouses.Count }).ToListAsync(),
         "amenities" => await _db.Amenities.AsNoTracking().OrderBy(a => a.Name).Select(a => new CatalogItemDto { Id = a.Id, Name = a.Name, Icon = a.Icon }).ToListAsync(),
         "asset-types" => await _db.AssetTypes.AsNoTracking().OrderBy(a => a.Name).Select(a => new CatalogItemDto { Id = a.Id, Name = a.Name }).ToListAsync(),
         "universities" => await _db.Universities.AsNoTracking().OrderBy(a => a.Name).Select(a => new CatalogItemDto { Id = a.Id, Name = a.Name, ShortName = a.ShortName, Latitude = a.Latitude, Longitude = a.Longitude }).ToListAsync(),
@@ -328,6 +329,23 @@ public class AdminService : IAdminService
             default: throw ApiException.NotFound("Danh mục không tồn tại.");
         }
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>Gộp khu vực trùng nghĩa: chuyển mọi nhà trọ sang khu vực đích rồi xóa khu vực nguồn, trong một transaction.</summary>
+    public async Task<MergeAreaResultDto> MergeAreaAsync(int sourceId, int targetId)
+    {
+        if (sourceId == targetId) throw ApiException.BadRequest("Khu vực đích phải khác khu vực cần gộp.");
+        var source = await _db.Areas.FirstOrDefaultAsync(a => a.Id == sourceId) ?? throw ApiException.NotFound("Không tìm thấy khu vực cần gộp.");
+        var target = await _db.Areas.AsNoTracking().FirstOrDefaultAsync(a => a.Id == targetId) ?? throw ApiException.NotFound("Không tìm thấy khu vực đích.");
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        var moved = await _db.BoardingHouses.Where(h => h.AreaId == sourceId)
+            .ExecuteUpdateAsync(s => s.SetProperty(h => h.AreaId, targetId));
+        _db.Areas.Remove(source);
+        await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        return new MergeAreaResultDto { TargetId = target.Id, TargetName = target.Name, MovedHouses = moved };
     }
 
     public async Task DeleteCatalogAsync(string type, int id)
