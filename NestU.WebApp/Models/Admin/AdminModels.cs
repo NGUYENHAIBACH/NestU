@@ -67,6 +67,19 @@ public class CatalogItemDto
     [Range(-90, 90)] [Display(Name = "Vĩ độ")] public double? Latitude { get; set; }
     [Range(-180, 180)] [Display(Name = "Kinh độ")] public double? Longitude { get; set; }
     [StringLength(50)] [Display(Name = "Icon (bootstrap-icons)")] public string? Icon { get; set; }
+    [Display(Name = "Số nhà trọ")] public int? HouseCount { get; set; }
+}
+
+public class MergeAreaDto
+{
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn khu vực đích")] public int TargetId { get; set; }
+}
+
+public class MergeAreaResultDto
+{
+    public int TargetId { get; set; }
+    public string TargetName { get; set; } = string.Empty;
+    public int MovedHouses { get; set; }
 }
 
 public class AdminStatsDto

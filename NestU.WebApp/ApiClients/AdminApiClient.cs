@@ -38,6 +38,7 @@ public class AdminApiClient : ApiClientBase
     public Task<ApiResult<CatalogItemDto>> CreateCatalogAsync(string type, CatalogItemDto m) => PostAsync<CatalogItemDto>($"api/admin/catalog/{type}", m);
     public Task<ApiResult> UpdateCatalogAsync(string type, CatalogItemDto m) => PutAsync($"api/admin/catalog/{type}/{m.Id}", m);
     public Task<ApiResult> DeleteCatalogAsync(string type, int id) => DeleteAsync($"api/admin/catalog/{type}/{id}");
+    public Task<ApiResult<MergeAreaResultDto>> MergeAreaAsync(int id, int targetId) => PostAsync<MergeAreaResultDto>($"api/admin/catalog/areas/{id}/merge", new MergeAreaDto { TargetId = targetId });
 
     public Task<ApiResult<AdminStatsDto>> StatsAsync() => GetAsync<AdminStatsDto>("api/admin/stats");
 }
