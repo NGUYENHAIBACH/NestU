@@ -15,6 +15,7 @@ public class BoardingHouse
     public double? Longitude { get; set; }
     public int TotalFloors { get; set; } = 1;
     public HouseStatus Status { get; set; } = HouseStatus.Pending;
+    public bool IsHidden { get; set; }   // Admin ẩn tin: không hiện công khai, không nhận lịch xem/yêu cầu thuê
     public decimal ElectricityPrice { get; set; }                     // đ/kWh, tối đa 4.000
     public decimal WaterPrice { get; set; }                           // đ/m3 hoặc đ/người
     public WaterBillingType WaterBillingType { get; set; } = WaterBillingType.PerM3;

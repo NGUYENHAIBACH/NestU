@@ -20,7 +20,7 @@ Bản này giữ nguyên kiến trúc và hai quy định cốt lõi (PCCC, giá
 | 8 | Giá trần điện ghi cứng 4.000, bỏ `SystemSetting` sửa được | Tránh mâu thuẫn giữa `[Range]`, CHECK và cấu hình |
 | 9 | Filtered unique index cho hợp đồng Active theo Tenant và theo Room | Thể hiện ràng buộc ở tầng CSDL (mục 1.5) |
 | 10 | Cookie hết hạn bằng JWT (60 phút, sliding qua refresh) | Tránh bị đá ra khi cookie còn sống nhưng JWT đã hết |
-| 11 | `ViewCount` khóa theo `roomId + IP/userId` bằng `IMemoryCache` | Ghi rõ cách đếm "mỗi trình duyệt 30 phút" |
+| 11 | `ViewCount` khóa theo `roomId + (userId hoặc visitorId)` bằng `IMemoryCache`; Web App gửi cookie `nestu_visitor` qua header `X-Visitor-Id` | Web App gọi API từ server nên IP của mọi khách là một; đếm đúng "mỗi trình duyệt 30 phút" |
 | 12 | OData trả `RoomListDto` phẳng (có sẵn tên, địa chỉ nhà trọ), bỏ `$expand` | `$expand` trên DTO tốn công cấu hình EDM |
 | 13 | Đổi tên project `BHM.*` thành `NestU.*` | Khớp tên nền tảng trong báo cáo |
 | 14 | Thêm việc nền tảng (tuần 1) do 1 người làm trước khi tách mảng | Tránh mỗi người tự viết một kiểu gọi API |
@@ -170,7 +170,7 @@ Tiền cọc không có cổng thanh toán riêng; hệ thống chỉ ghi nhận
 1. Tenant gửi yêu cầu thuê; số tiền cọc lấy từ `Room.DepositAmount` (mặc định bằng 1 tháng tiền phòng).
 2. Tenant đóng cọc trực tiếp hoặc chuyển khoản cho chủ trọ ngoài hệ thống.
 3. Landlord duyệt yêu cầu thuê, xác nhận đã nhận cọc: `Contract.DepositAmount` và `DepositPaidAt` được ghi.
-4. Khi hợp đồng kết thúc, Landlord lập `DepositSettlement`: khấu trừ hư hỏng tài sản (từ biên bản trả phòng) và hóa đơn còn nợ; số còn lại hoàn cho Tenant. Tổng khấu trừ không vượt tiền cọc.
+4. Khi hợp đồng kết thúc, Landlord lập `DepositSettlement`: khấu trừ hư hỏng tài sản (từ biên bản trả phòng) và hóa đơn còn nợ; số còn lại hoàn cho Tenant. Tổng khấu trừ được cắt về tối đa bằng tiền cọc (trừ hư hỏng trước, rồi hóa đơn từ cũ đến mới): hóa đơn trừ đủ → Paid, trừ một phần → giữ Unpaid với số còn phải trả.
 
 ### 4. Bàn giao tài sản
 
@@ -388,7 +388,7 @@ Route nhóm theo role, mỗi nhóm gắn một `[Authorize(Roles = ...)]` (mục
 | POST | `/api/auth/login` | Đăng nhập | `LoginDto` → `TokenDto` |
 | GET | `/api/auth/me` | Người dùng hiện tại | → `UserDto` |
 | GET | `/odata/Rooms` | Tìm, lọc, sắp xếp, phân trang phòng; chỉ nhà trọ Active | → `RoomListDto` |
-| GET | `/api/rooms/{id}` | Chi tiết phòng, tầng, ảnh, tiện ích, tài sản; tăng ViewCount (khóa `roomId + IP/userId` 30 phút trong `IMemoryCache`) | → `RoomDetailDto` |
+| GET | `/api/rooms/{id}` | Chi tiết phòng, tầng, ảnh, tiện ích, tài sản; tăng ViewCount (khóa `roomId + (userId hoặc visitorId từ header X-Visitor-Id)` 30 phút trong `IMemoryCache`) | → `RoomDetailDto` |
 | GET | `/api/houses/{id}` | Chi tiết nhà trọ Active, phòng nhóm theo tầng, badge đã duyệt PCCC | → `HouseDetailDto` |
 | GET | `/api/public/stats` | Số liệu trang Home | → `HomeStatsDto` |
 | GET | `/api/public/lookups` | Khu vực, tiện ích, trường (kèm tọa độ) | → `LookupsDto` |
@@ -459,7 +459,8 @@ Route nhóm theo role, mỗi nhóm gắn một `[Authorize(Roles = ...)]` (mục
 | PUT | `/landlord-approvals/{id}/decision` | Duyệt hoặc từ chối chủ trọ | `DecisionDto` → 204 |
 | GET | `/certificates?status=Pending`, `/certificates/{id}` | Giấy PCCC chờ duyệt | → `CertificateDto` |
 | PUT | `/certificates/{id}/review` | Duyệt (nhà trọ → Active) hoặc từ chối | `ReviewCertificateDto` → 204 |
-| GET ; PUT | `/reports` ; `/reports/{id}/resolve` | Khiếu nại; ẩn tin, khóa tài khoản hoặc bác bỏ | `ResolveReportDto` → 204 |
+| GET ; PUT | `/houses` ; `/houses/{id}/hidden` | Danh sách nhà trọ; ẩn/hiện tin bằng cờ `IsHidden` | → `AdminHouseDto` ; `SetHouseHiddenDto` → 204 |
+| GET ; PUT | `/reports` ; `/reports/{id}/resolve` | Khiếu nại; ẩn tin (`HideHouse`), khóa tài khoản (`LockLandlord`) hoặc bác bỏ | `ResolveReportDto` → 204 |
 | CRUD | `/catalog/areas`, `/amenities`, `/asset-types`, `/universities` | Danh mục chung | `LookupItemDto` |
 | GET | `/stats` | (Nên có) Dashboard toàn hệ thống | → `AdminStatsDto` |
 

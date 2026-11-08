@@ -35,6 +35,22 @@ public class LandlordApprovalDto
     public DateTime? ReviewedAt { get; set; }
 }
 
+public class AdminHouseDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string LandlordName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public bool IsHidden { get; set; }
+    public int RoomCount { get; set; }
+}
+
+public class SetHouseHiddenDto
+{
+    public bool IsHidden { get; set; }
+}
+
 public class ResolveReportDto
 {
     public int Id { get; set; }

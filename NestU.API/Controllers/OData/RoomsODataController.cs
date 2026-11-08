@@ -29,7 +29,7 @@ public static class RoomQueries
     /// <summary>Projection dùng chung cho OData và các API công khai.</summary>
     public static IQueryable<RoomListDto> PublicRooms(NestUDbContext db) =>
         db.Rooms.AsNoTracking()
-            .Where(r => r.BoardingHouse.Status == HouseStatus.Active)
+            .Where(r => r.BoardingHouse.Status == HouseStatus.Active && !r.BoardingHouse.IsHidden)
             .Select(r => new RoomListDto
             {
                 Id = r.Id,

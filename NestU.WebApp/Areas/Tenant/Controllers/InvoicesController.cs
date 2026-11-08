@@ -35,7 +35,7 @@ public class InvoicesController : BaseController
         var r = await _api.InvoiceAsync(id);
         if (!r.Success) return HandleFailure(r, "Index");
         ViewBag.Invoice = r.Data;
-        return View(new ReportPaymentDto { InvoiceId = id, Amount = r.Data!.Total });
+        return View(new ReportPaymentDto { InvoiceId = id, Amount = r.Data!.RemainingAmount });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

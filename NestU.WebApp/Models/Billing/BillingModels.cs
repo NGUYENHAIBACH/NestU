@@ -55,6 +55,7 @@ public class InvoiceDto
     public int Month { get; set; }
     public int Year { get; set; }
     public decimal Total { get; set; }
+    public decimal RemainingAmount { get; set; }   // còn phải trả (Total trừ khoản đã xác nhận, vd phần trừ vào cọc)
     public DateTime DueDate { get; set; }
     public string Status { get; set; } = string.Empty;
     public string DisplayStatus { get; set; } = string.Empty;

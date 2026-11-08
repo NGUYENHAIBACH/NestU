@@ -110,7 +110,7 @@ public class SupportService : ISupportService
     {
         var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == roomId)
             ?? throw ApiException.NotFound("Không tìm thấy phòng.");
-        if (room.BoardingHouse.Status != HouseStatus.Active)
+        if (room.BoardingHouse.Status != HouseStatus.Active || room.BoardingHouse.IsHidden)
             throw ApiException.NotFound("Phòng này chưa được công khai.");
 
         var rows = await _db.Reviews.AsNoTracking().Include(r => r.Contract).ThenInclude(c => c.Room).Include(r => r.Contract).ThenInclude(c => c.Tenant)

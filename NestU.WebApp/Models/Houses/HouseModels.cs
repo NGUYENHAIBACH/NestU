@@ -28,6 +28,7 @@ public class UpdateHouseDto : CreateHouseDto { }
 public class HouseDto
 {
     public int Id { get; set; }
+    public bool IsHidden { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public int AreaId { get; set; }

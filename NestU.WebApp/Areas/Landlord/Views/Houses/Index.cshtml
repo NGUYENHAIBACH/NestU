@@ -11,7 +11,7 @@
             <td>@h.TotalFloors tầng · @h.RoomCount phòng<div class="small text-secondary">còn trống @h.AvailableRoomCount</div></td>
             <td>@h.ElectricityPrice.ToString("N0")đ/kWh</td>
             <td>@if (h.CertificateStatus is null) { <span class="badge text-bg-secondary">Chưa nộp</span> } else { <partial name="_StatusBadge" model="@h.CertificateStatus" /> }</td>
-            <td><partial name="_StatusBadge" model="@h.Status" /></td>
+            <td><partial name="_StatusBadge" model="@h.Status" />@if (h.IsHidden) { <span class="badge text-bg-dark ms-1">Bị ẩn</span> }</td>
             <td class="text-end"><a asp-action="Details" asp-route-id="@h.Id" class="btn btn-outline-dark btn-sm">Quản lý</a></td>
         </tr>
     }

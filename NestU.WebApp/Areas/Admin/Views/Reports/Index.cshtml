@@ -13,7 +13,7 @@
                 <form asp-action="Resolve" method="post" class="d-flex gap-1 flex-wrap align-items-start" style="max-width: 460px">
                     @Html.AntiForgeryToken()<input type="hidden" name="Id" value="@r.Id" />
                     <select name="Status" class="form-select form-select-sm" style="width:120px"><option value="Resolved">Xử lý</option><option value="Dismissed">Bác bỏ</option></select>
-                    <select name="Action" class="form-select form-select-sm" style="width:150px"><option value="None">Không hành động</option>@if (r.TargetType == "Room") { <option value="HideRoom">Ẩn phòng (Đang sửa)</option> }<option value="LockLandlord">Khóa chủ trọ</option></select>
+                    <select name="Action" class="form-select form-select-sm" style="width:150px"><option value="None">Không hành động</option>@if (r.TargetType is "Room" or "House") { <option value="HideHouse">Ẩn tin nhà trọ</option> }<option value="LockLandlord">Khóa chủ trọ</option></select>
                     <input name="Note" class="form-control form-control-sm" placeholder="Ghi chú kết quả" style="width:160px" />
                     <button class="btn btn-primary btn-sm">Lưu</button>
                 </form>

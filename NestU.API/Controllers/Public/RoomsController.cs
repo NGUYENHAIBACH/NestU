@@ -26,7 +26,9 @@ public class PublicRoomsController : ControllerBase
     {
         var viewer = User.Identity?.IsAuthenticated == true
             ? "u:" + User.GetUserId()
-            : "ip:" + (HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            : Guid.TryParse(Request.Headers["X-Visitor-Id"].ToString(), out var visitorId)
+                ? "v:" + visitorId.ToString("N")   // khách qua Web App (cookie nestu_visitor)
+                : "ip:" + (HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");   // gọi thẳng API, không có header
         return Ok(await _rooms.GetPublicDetailAsync(id, viewer));
     }
 

@@ -57,15 +57,15 @@ Mỗi project có file `.sln` riêng trong thư mục của nó. Web App **khôn
 
 - **Role:** Admin, Landlord, Tenant (Guest = chưa đăng nhập). Landlord đăng ký ở trạng thái `Pending` trong `LandlordProfile`; chưa `Approved` thì mọi `/api/landlord/*` (trừ `/profile`) trả 403 qua policy `ApprovedLandlord`.
 - **Tenant:** `IsStudent` = true thì bắt buộc MSSV và trường. Nhà trọ `StudentOnly` chỉ nhận sinh viên.
-- **PCCC:** nhà trọ tạo ra ở `Pending`; Landlord upload giấy (số giấy + file); Admin duyệt một lần → nhà trọ `Active`. Không có ngày hết hạn, không có `Suspended`. Chỉ nhà trọ `Active` hiện công khai (OData lọc ở server) và nhận yêu cầu thuê.
+- **PCCC:** nhà trọ tạo ra ở `Pending`; Landlord upload giấy (số giấy + file); Admin duyệt một lần → nhà trọ `Active`. Không có ngày hết hạn, không có `Suspended`. Admin ẩn tin bằng cờ `BoardingHouse.IsHidden` (`PUT /api/admin/houses/{id}/hidden` hoặc khi xử lý khiếu nại). Chỉ nhà trọ `Active` và không `IsHidden` hiện công khai (OData lọc ở server) và nhận lịch xem, yêu cầu thuê.
 - **Giá điện:** 1–4.000đ/kWh, ghi cứng ở CHECK, `[Range(1, 4000)]` trên DTO và model Web App. Đơn giá lưu vào `InvoiceDetail.UnitPrice` lúc lập hóa đơn.
 - **Tầng:** `Room.Floor`, `BoardingHouse.TotalFloors`, `1 ≤ Floor ≤ TotalFloors`. Tạo hàng loạt: số phòng = `floor × 100 + n`, tối đa 30 phòng/lần, trùng số → 409 và không tạo phòng nào.
 - **Tài sản:** `RoomAsset`; khi duyệt thuê sao chép thành `ContractAsset` (Stage = CheckIn); Tenant xác nhận thì khóa; trả phòng ghi CheckOut + khấu trừ, cập nhật ngược `RoomAsset.Condition`.
-- **Tiền cọc:** ghi `Contract.DepositAmount`, `DepositPaidAt` khi duyệt thuê; quyết toán bằng `DepositSettlement` (khấu trừ hư hỏng + hóa đơn chưa trả ≤ tiền cọc).
+- **Tiền cọc:** ghi `Contract.DepositAmount`, `DepositPaidAt` khi duyệt thuê; quyết toán bằng `DepositSettlement`. Service cắt khấu trừ về tối đa bằng cọc (trừ hư hỏng trước, rồi hóa đơn từ cũ đến mới; CHECK ở CSDL chỉ là lớp chặn cuối): hóa đơn trừ đủ → `Paid`, trừ một phần → ghi `Payment` phần đã trừ và giữ `Unpaid`, `InvoiceDto.RemainingAmount` là số còn phải trả. Biên bản trả phòng ghi số lượng 0 (thất lạc) → `RoomAsset.Condition = Broken`, không xóa `RoomAsset`.
 - **Tính khi đọc, không lưu:** hóa đơn `Unpaid` quá `DueDate` → DTO trả `Overdue`; hợp đồng `Active` quá `EndDate` → hiển thị "Đã hết hạn".
 - **Hợp đồng:** filtered unique `(TenantId) WHERE Status='Active'` và `(RoomId) WHERE Status='Active'`; `Room.RowVersion` chống duyệt trùng → 409.
 - **Hóa đơn:** unique `(ContractId, Month, Year)`; chỉ số điện nước tháng này ≥ tháng trước; nước tính theo m³ (`PerM3`) hoặc theo người (`PerPerson`).
-- **ViewCount:** tăng khi `GET /api/rooms/{id}`, khóa `roomId + IP/userId` 30 phút bằng `IMemoryCache`.
+- **ViewCount:** tăng khi `GET /api/rooms/{id}`, khóa `roomId + (userId hoặc visitorId)` 30 phút bằng `IMemoryCache`. Web App tạo cookie `nestu_visitor` (GUID) và gửi header `X-Visitor-Id`; không dùng IP cho khách qua Web App vì Web App gọi API từ server (IP chỉ là dự phòng khi gọi thẳng API không có header).
 
 ## Xác thực
 

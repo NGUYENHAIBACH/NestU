@@ -133,6 +133,7 @@ CREATE TABLE BoardingHouses (
     Longitude         float NULL,
     TotalFloors       int NOT NULL,
     Status            nvarchar(30) NOT NULL,          -- Pending | Active | Rejected
+    IsHidden          bit NOT NULL DEFAULT 0,         -- Admin ẩn tin
     ElectricityPrice  decimal(18,2) NOT NULL,         -- đ/kWh
     WaterPrice        decimal(18,2) NOT NULL,
     WaterBillingType  nvarchar(30) NOT NULL,          -- PerM3 | PerPerson

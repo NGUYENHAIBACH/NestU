@@ -1,15 +1,15 @@
 @model NestU.WebApp.Models.Rentals.CreateDepositSettlementDto
-@{ ViewData["Title"] = "Quyết toán cọc"; NestU.WebApp.Models.Rentals.ContractDto c = ViewBag.Contract; decimal damage = ViewBag.Damage; decimal unpaid = ViewBag.Unpaid; var refund = c.DepositAmount - damage - unpaid; }
+@{ ViewData["Title"] = "Quyết toán cọc"; NestU.WebApp.Models.Rentals.ContractDto c = ViewBag.Contract; decimal damage = ViewBag.Damage; decimal unpaid = ViewBag.Unpaid; var damageCut = Math.Min(damage, c.DepositAmount); var unpaidCut = Math.Min(unpaid, c.DepositAmount - damageCut); var refund = c.DepositAmount - damageCut - unpaidCut; var debtLeft = unpaid - unpaidCut; }
 <div class="card p-4" style="max-width: 640px">
     <h1 class="h4 mb-1">Quyết toán cọc &amp; kết thúc hợp đồng</h1>
     <p class="text-secondary">Hợp đồng #@c.Id · Phòng @c.RoomNumber · @c.TenantName</p>
     <table class="table"><tbody>
         <tr><td>Tiền cọc đã nhận</td><td class="text-end">@c.DepositAmount.ToString("N0")đ</td></tr>
-        <tr><td>Khấu trừ hư hỏng (theo biên bản trả phòng)</td><td class="text-end text-danger">-@damage.ToString("N0")đ</td></tr>
-        <tr><td>Hóa đơn chưa thanh toán <span class="small text-secondary">(trừ vào cọc nếu chọn)</span></td><td class="text-end text-danger">-@unpaid.ToString("N0")đ</td></tr>
-        <tr class="fw-bold"><td>Hoàn lại cho người thuê</td><td class="text-end @(refund < 0 ? "text-danger" : "text-success")">@refund.ToString("N0")đ</td></tr>
+        <tr><td>Khấu trừ hư hỏng (theo biên bản trả phòng)</td><td class="text-end text-danger">-@damageCut.ToString("N0")đ</td></tr>
+        <tr><td>Hóa đơn chưa thanh toán <span class="small text-secondary">(trừ vào cọc nếu chọn)</span></td><td class="text-end text-danger">-@unpaidCut.ToString("N0")đ</td></tr>
+        <tr class="fw-bold"><td>Hoàn lại cho người thuê</td><td class="text-end text-success">@refund.ToString("N0")đ</td></tr>
     </tbody></table>
-    @if (refund < 0) { <div class="alert alert-danger small">Tổng khấu trừ vượt tiền cọc. Hãy giảm khấu trừ trong biên bản hoặc thu thêm ngoài hệ thống, nếu không sẽ không quyết toán được.</div> }
+    @if (damage > damageCut || debtLeft > 0) { <div class="alert alert-warning small">Tiền cọc không đủ cho toàn bộ khấu trừ nên hệ thống chỉ trừ tới hết cọc.@if (debtLeft > 0) { <text> Nếu trừ hóa đơn vào cọc, phần nợ còn lại @debtLeft.ToString("N0")đ vẫn ở trạng thái chưa thanh toán.</text> }</div> }
     <form method="post">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="ContractId" />

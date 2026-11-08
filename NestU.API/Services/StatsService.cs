@@ -116,10 +116,11 @@ public class StatsService : IStatsService
 
         // Hóa đơn chưa thanh toán / nợ
         var unpaidInvs = await _db.Invoices
+            .Include(i => i.Payments)
             .Where(i => targetHouseIds.Contains(i.Contract.Room.BoardingHouseId)
                         && i.Status != InvoiceStatus.Paid)
             .ToListAsync();
-        var unpaidTotal = unpaidInvs.Sum(i => i.Total);
+        var unpaidTotal = unpaidInvs.Sum(i => i.Total - i.Payments.Where(p => p.ConfirmedAt != null).Sum(p => p.Amount));
         var unpaidCount = unpaidInvs.Count;
 
         // 2. Thống kê lấp đầy

@@ -28,6 +28,9 @@ public class AdminApiClient : ApiClientBase
     public Task<ApiResult<CertificateDto>> CertificateAsync(int id) => GetAsync<CertificateDto>($"api/admin/certificates/{id}");
     public Task<ApiResult> ReviewCertificateAsync(DecisionModel m) => PutAsync($"api/admin/certificates/{m.Id}/review", new { m.Approve, m.Note });
 
+    public Task<ApiResult<List<AdminHouseDto>>> HousesAsync() => GetAsync<List<AdminHouseDto>>("api/admin/houses");
+    public Task<ApiResult> SetHouseHiddenAsync(int id, bool hidden) => PutAsync($"api/admin/houses/{id}/hidden", new SetHouseHiddenDto { IsHidden = hidden });
+
     public Task<ApiResult<List<ReportDto>>> ReportsAsync(string? status) => GetAsync<List<ReportDto>>("api/admin/reports" + (string.IsNullOrEmpty(status) ? "" : $"?status={status}"));
     public Task<ApiResult> ResolveReportAsync(ResolveReportDto m) => PutAsync($"api/admin/reports/{m.Id}/resolve", new { m.Status, m.Action, m.Note });
 

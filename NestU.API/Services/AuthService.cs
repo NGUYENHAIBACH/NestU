@@ -144,6 +144,16 @@ public class AuthService : IAuthService
         return dto;
     }
 
+    private const int MaxOtpAttempts = 5;
+
+    private sealed class OtpEntry
+    {
+        private int _failures;
+        public OtpEntry(string code) => Code = code;
+        public string Code { get; }
+        public int RegisterFailure() => Interlocked.Increment(ref _failures);
+    }
+
     public async Task ForgotPasswordAsync(ForgotPasswordDto dto)
     {
         var email = dto.Email.Trim().ToLowerInvariant();
@@ -154,12 +164,18 @@ public class AuthService : IAuthService
         if (user.IsLocked)
             throw ApiException.Forbidden("Tài khoản này đã bị khóa. Vui lòng liên hệ quản trị viên.");
 
+        // Chống gửi mã liên tục (mỗi mã mới lại có thêm lượt thử, và mỗi lần gửi là một email thật)
+        var cooldownKey = $"pwd_otp_cooldown_{email}";
+        if (_cache.TryGetValue(cooldownKey, out _))
+            throw ApiException.BadRequest("Bạn vừa yêu cầu mã OTP. Vui lòng đợi 1 phút rồi thử lại.");
+        _cache.Set(cooldownKey, true, TimeSpan.FromMinutes(1));
+
         // Sinh mã OTP 6 chữ số ngẫu nhiên
         var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6");
         var cacheKey = $"pwd_otp_{email}";
 
         // Lưu mã vào bộ nhớ đệm hiệu lực 5 phút
-        _cache.Set(cacheKey, otp, TimeSpan.FromMinutes(5));
+        _cache.Set(cacheKey, new OtpEntry(otp), TimeSpan.FromMinutes(5));
 
         // Gửi email
         await _email.SendPasswordResetOtpAsync(user.Email!, otp);
@@ -170,8 +186,17 @@ public class AuthService : IAuthService
         var email = dto.Email.Trim().ToLowerInvariant();
         var cacheKey = $"pwd_otp_{email}";
 
-        if (!_cache.TryGetValue<string>(cacheKey, out var cachedOtp) || cachedOtp != dto.Otp.Trim())
+        if (!_cache.TryGetValue<OtpEntry>(cacheKey, out var entry) || entry is null)
             throw ApiException.BadRequest("Mã OTP không chính xác hoặc đã hết hạn (mã chỉ có hiệu lực trong 5 phút).");
+        if (entry.Code != dto.Otp.Trim())
+        {
+            if (entry.RegisterFailure() >= MaxOtpAttempts)
+            {
+                _cache.Remove(cacheKey);
+                throw ApiException.BadRequest($"Bạn đã nhập sai mã OTP {MaxOtpAttempts} lần. Mã đã bị hủy, vui lòng yêu cầu mã mới.");
+            }
+            throw ApiException.BadRequest("Mã OTP không chính xác hoặc đã hết hạn (mã chỉ có hiệu lực trong 5 phút).");
+        }
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user is null)

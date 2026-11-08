@@ -184,10 +184,14 @@ public class BillingService : IBillingService
         .Include(i => i.Contract).ThenInclude(c => c.Room).ThenInclude(r => r.BoardingHouse)
         .Include(i => i.Contract).ThenInclude(c => c.Tenant);
 
+    /// <summary>Số tiền còn phải trả = tổng hóa đơn trừ các khoản đã xác nhận (vd phần đã trừ vào cọc).</summary>
+    private static decimal RemainingOf(Invoice i) =>
+        i.Status == InvoiceStatus.Paid ? 0 : Math.Max(0, i.Total - i.Payments.Where(p => p.ConfirmedAt != null).Sum(p => p.Amount));
+
     private static InvoiceDto Map(Invoice i) => new()
     {
         Id = i.Id, ContractId = i.ContractId, RoomNumber = i.Contract.Room.RoomNumber, HouseName = i.Contract.Room.BoardingHouse.Name,
-        TenantName = i.Contract.Tenant.FullName, Month = i.Month, Year = i.Year, Total = i.Total, DueDate = i.DueDate,
+        TenantName = i.Contract.Tenant.FullName, Month = i.Month, Year = i.Year, Total = i.Total, RemainingAmount = RemainingOf(i), DueDate = i.DueDate,
         Status = i.Status.ToString(), DisplayStatus = i.DisplayStatus, RejectReason = i.RejectReason, CreatedAt = i.CreatedAt,
         Details = i.Details.Select(d => new InvoiceDetailDto { ItemName = d.ItemName, Quantity = d.Quantity, Unit = d.Unit, UnitPrice = d.UnitPrice, Amount = d.Amount }).ToList(),
         Payments = i.Payments.OrderByDescending(p => p.ReportedAt).Select(p => new PaymentDto { Id = p.Id, Amount = p.Amount, ProofImageUrl = p.ProofImageUrl, Note = p.Note, ReportedAt = p.ReportedAt, ConfirmedAt = p.ConfirmedAt }).ToList(),
@@ -226,11 +230,12 @@ public class BillingService : IBillingService
     // =====================================================================
     public async Task ReportPaymentAsync(string tenantId, int invoiceId, ReportPaymentDto dto)
     {
-        var inv = await _db.Invoices.Include(i => i.Contract).FirstOrDefaultAsync(i => i.Id == invoiceId) ?? throw ApiException.NotFound("Không tìm thấy hóa đơn.");
+        var inv = await _db.Invoices.Include(i => i.Contract).Include(i => i.Payments).FirstOrDefaultAsync(i => i.Id == invoiceId) ?? throw ApiException.NotFound("Không tìm thấy hóa đơn.");
         if (inv.Contract.TenantId != tenantId) throw ApiException.Forbidden();
         if (inv.Status == InvoiceStatus.Paid) throw ApiException.Conflict("Hóa đơn đã thanh toán.");
         if (inv.Status == InvoiceStatus.PendingConfirm) throw ApiException.Conflict("Bạn đã báo thanh toán, đang chờ chủ trọ xác nhận.");
-        if (dto.Amount < inv.Total) throw ApiException.BadRequest($"Số tiền phải đủ {inv.Total:N0}đ.");
+        var remaining = RemainingOf(inv);
+        if (dto.Amount < remaining) throw ApiException.BadRequest($"Số tiền phải đủ {remaining:N0}đ.");
 
         string? url = null;
         if (dto.ProofImage is not null) url = await _files.SaveAsync(dto.ProofImage, "payments", new[] { ".jpg", ".jpeg", ".png", ".webp" });
@@ -271,7 +276,7 @@ public class BillingService : IBillingService
         var inv = await GetInvoiceAsync(tenantId, Roles.Tenant, invoiceId);
         if (string.IsNullOrEmpty(inv.BankCode) || string.IsNullOrEmpty(inv.BankAccount)) throw ApiException.BadRequest("Chủ trọ chưa cấu hình tài khoản nhận tiền.");
         var content = $"NESTU-{inv.Id}";
-        var url = $"https://img.vietqr.io/image/{inv.BankCode}-{inv.BankAccount}-compact2.png?amount={(long)inv.Total}&addInfo={Uri.EscapeDataString(content)}&accountName={Uri.EscapeDataString(inv.AccountName ?? "")}";
+        var url = $"https://img.vietqr.io/image/{inv.BankCode}-{inv.BankAccount}-compact2.png?amount={(long)inv.RemainingAmount}&addInfo={Uri.EscapeDataString(content)}&accountName={Uri.EscapeDataString(inv.AccountName ?? "")}";
         return new QrDto { Content = content, ImageUrl = url };
     }
 }

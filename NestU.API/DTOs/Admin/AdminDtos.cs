@@ -60,13 +60,29 @@ public class CreateReportDto
     public string Reason { get; set; } = string.Empty;
 }
 
+public class AdminHouseDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string LandlordName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public bool IsHidden { get; set; }
+    public int RoomCount { get; set; }
+}
+
+public class SetHouseHiddenDto
+{
+    public bool IsHidden { get; set; }
+}
+
 public class ResolveReportDto
 {
     /// <summary>Resolved hoặc Dismissed</summary>
     [Required] [RegularExpression("^(Resolved|Dismissed)$", ErrorMessage = "Kết quả không hợp lệ")]
     public string Status { get; set; } = "Resolved";
-    /// <summary>Hành động kèm theo khi Resolved: None, HideRoom, LockLandlord</summary>
-    [RegularExpression("^(None|HideRoom|LockLandlord)$")] public string Action { get; set; } = "None";
+    /// <summary>Hành động kèm theo khi Resolved: None, HideHouse, LockLandlord</summary>
+    [RegularExpression("^(None|HideHouse|LockLandlord)$")] public string Action { get; set; } = "None";
     [StringLength(500)] public string? Note { get; set; }
 }
 

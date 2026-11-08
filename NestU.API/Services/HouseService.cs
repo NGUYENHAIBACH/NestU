@@ -60,7 +60,7 @@ public class HouseService : IHouseService
         // Enum không translate được ToString() trong SQL → lấy enum ra rồi map trong bộ nhớ
         var rows = await q.Select(h => new
         {
-            h.Id, h.Name, h.Address, h.AreaId, AreaName = h.Area.Name, h.Latitude, h.Longitude, h.TotalFloors, h.Status,
+            h.Id, h.Name, h.Address, h.AreaId, AreaName = h.Area.Name, h.Latitude, h.Longitude, h.TotalFloors, h.Status, h.IsHidden,
             h.ElectricityPrice, h.WaterPrice, h.WaterBillingType, h.AllowedTenantType, h.Description, h.BankCode, h.BankAccount, h.AccountName,
             RoomCount = h.Rooms.Count, AvailableRoomCount = h.Rooms.Count(r => r.Status == RoomStatus.Available),
             CertStatus = h.Certificates.OrderByDescending(c => c.UploadedAt).Select(c => (CertificateStatus?)c.Status).FirstOrDefault(),
@@ -71,7 +71,7 @@ public class HouseService : IHouseService
         return rows.Select(h => new HouseDto
         {
             Id = h.Id, Name = h.Name, Address = h.Address, AreaId = h.AreaId, AreaName = h.AreaName,
-            Latitude = h.Latitude, Longitude = h.Longitude, TotalFloors = h.TotalFloors, Status = h.Status.ToString(),
+            Latitude = h.Latitude, Longitude = h.Longitude, TotalFloors = h.TotalFloors, Status = h.Status.ToString(), IsHidden = h.IsHidden,
             ElectricityPrice = h.ElectricityPrice, WaterPrice = h.WaterPrice, WaterBillingType = h.WaterBillingType.ToString(),
             AllowedTenantType = h.AllowedTenantType.ToString(), Description = h.Description,
             BankCode = h.BankCode, BankAccount = h.BankAccount, AccountName = h.AccountName,

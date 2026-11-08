@@ -35,8 +35,8 @@ public class PublicService : IPublicService
     {
         return new HomeStatsDto
         {
-            AvailableRooms = await _db.Rooms.CountAsync(r => r.Status == RoomStatus.Available && r.BoardingHouse.Status == HouseStatus.Active),
-            ActiveHouses = await _db.BoardingHouses.CountAsync(h => h.Status == HouseStatus.Active),
+            AvailableRooms = await _db.Rooms.CountAsync(r => r.Status == RoomStatus.Available && r.BoardingHouse.Status == HouseStatus.Active && !r.BoardingHouse.IsHidden),
+            ActiveHouses = await _db.BoardingHouses.CountAsync(h => h.Status == HouseStatus.Active && !h.IsHidden),
             ActiveTenants = await _db.Contracts.CountAsync(c => c.Status == ContractStatus.Active)
         };
     }
@@ -53,7 +53,7 @@ public class PublicService : IPublicService
     public async Task<HouseDetailDto> GetHouseDetailAsync(int houseId)
     {
         var h = await _db.BoardingHouses.AsNoTracking().Include(x => x.Area).Include(x => x.Landlord).Include(x => x.Services)
-            .FirstOrDefaultAsync(x => x.Id == houseId && x.Status == HouseStatus.Active) 
+            .FirstOrDefaultAsync(x => x.Id == houseId && x.Status == HouseStatus.Active && !x.IsHidden) 
             ?? throw ApiException.NotFound("Không tìm thấy nhà trọ.");
 
         var rooms = await RoomQueries.PublicRooms(_db).Where(r => r.HouseId == houseId).OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).ToListAsync();
@@ -72,7 +72,7 @@ public class PublicService : IPublicService
 
     public async Task<List<MapMarkerDto>> GetMapMarkersAsync()
     {
-        return await _db.BoardingHouses.AsNoTracking().Where(h => h.Status == HouseStatus.Active && h.Latitude != null && h.Longitude != null)
+        return await _db.BoardingHouses.AsNoTracking().Where(h => h.Status == HouseStatus.Active && !h.IsHidden && h.Latitude != null && h.Longitude != null)
             .Select(h => new MapMarkerDto
             {
                 HouseId = h.Id, Name = h.Name, Latitude = h.Latitude!.Value, Longitude = h.Longitude!.Value,

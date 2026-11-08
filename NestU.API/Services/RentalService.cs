@@ -70,6 +70,7 @@ public class RentalService : IRentalService
             ?? throw ApiException.BadRequest("Vui lòng hoàn thiện hồ sơ người thuê trước khi đặt lịch xem.");
 
         if (room.BoardingHouse.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC, chưa nhận lịch xem.");
+        if (room.BoardingHouse.IsHidden) throw ApiException.BadRequest("Nhà trọ đang bị ẩn, tạm ngừng nhận lịch xem.");
         if (room.Status != RoomStatus.Available) throw ApiException.BadRequest("Phòng hiện không còn trống.");
         if (room.BoardingHouse.AllowedTenantType == AllowedTenantType.StudentOnly && !profile.IsStudent)
             throw ApiException.BadRequest("Nhà trọ này chỉ nhận sinh viên, bạn không thể đặt lịch xem.");
@@ -168,6 +169,7 @@ public class RentalService : IRentalService
 
         // Quy định 1: chỉ nhà trọ Active (đã duyệt PCCC)
         if (room.BoardingHouse.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC, chưa nhận yêu cầu thuê.");
+        if (room.BoardingHouse.IsHidden) throw ApiException.BadRequest("Nhà trọ đang bị ẩn, tạm ngừng nhận yêu cầu thuê.");
         if (room.Status != RoomStatus.Available) throw ApiException.BadRequest("Phòng hiện không còn trống.");
         if (dto.NumberOfOccupants < 1) throw new BusinessRuleException("Số người ở phải từ 1 người trở lên.");
         if (dto.DurationMonths < 1 || dto.DurationMonths > 36) throw new BusinessRuleException("Thời hạn thuê phải từ 1 đến 36 tháng.");
@@ -213,6 +215,7 @@ public class RentalService : IRentalService
         if (house.LandlordId != landlordId) throw ApiException.Forbidden();
         if (req.Status != RentalRequestStatus.Pending) throw ApiException.Conflict("Yêu cầu này đã được xử lý.");
         if (house.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC.");
+        if (house.IsHidden) throw ApiException.BadRequest("Nhà trọ đang bị ẩn, tạm ngừng nhận khách thuê.");
         if (room.Status != RoomStatus.Available) throw ApiException.Conflict("Phòng đã có người thuê.");
         if (req.NumberOfOccupants < 1) throw new BusinessRuleException("Số người ở phải từ 1 người trở lên.");
         if (req.NumberOfOccupants > room.Capacity) throw ApiException.BadRequest($"Số người vượt sức chứa ({room.Capacity}).");
@@ -529,27 +532,40 @@ public class RentalService : IRentalService
 
         var damage = checkout.Sum(a => a.DeductionAmount);
         var unpaidInvoices = dto.DeductUnpaidInvoices
-            ? await _db.Invoices.Where(i => i.ContractId == contractId && i.Status != InvoiceStatus.Paid).ToListAsync()
+            ? await _db.Invoices.Where(i => i.ContractId == contractId && i.Status != InvoiceStatus.Paid).OrderBy(i => i.Year).ThenBy(i => i.Month).ToListAsync()
             : new List<Invoice>();
-        var unpaid = unpaidInvoices.Sum(i => i.Total);
 
-        var totalDeduct = damage + unpaid;
-        if (totalDeduct > c.DepositAmount)
-            throw ApiException.BadRequest($"Tổng khấu trừ ({totalDeduct:N0}đ) vượt tiền cọc ({c.DepositAmount:N0}đ). Hãy giảm khấu trừ hoặc thu thêm ngoài hệ thống.");
+        // Cắt khấu trừ về tối đa bằng cọc: trừ hư hỏng trước, rồi trừ hóa đơn từ cũ đến mới; nợ dư vẫn Unpaid
+        var damageDeduction = Math.Min(damage, c.DepositAmount);
+        var depositLeft = c.DepositAmount - damageDeduction;
+        var deductions = new List<(Invoice Invoice, decimal Amount)>();
+        foreach (var inv in unpaidInvoices)
+        {
+            if (depositLeft <= 0) break;
+            var amount = Math.Min(inv.Total, depositLeft);
+            deductions.Add((inv, amount));
+            depositLeft -= amount;
+        }
+        var unpaidDeduction = deductions.Sum(d => d.Amount);
 
         await using var tx = await _db.Database.BeginTransactionAsync();
         var settlement = new DepositSettlement
         {
-            ContractId = contractId, DepositAmount = c.DepositAmount, DamageDeduction = damage, UnpaidDeduction = unpaid,
-            RefundAmount = c.DepositAmount - totalDeduct, Note = dto.Note
+            ContractId = contractId, DepositAmount = c.DepositAmount, DamageDeduction = damageDeduction, UnpaidDeduction = unpaidDeduction,
+            RefundAmount = depositLeft, Note = dto.Note
         };
         _db.DepositSettlements.Add(settlement);
 
-        // Hóa đơn chưa trả được trừ vào cọc → coi như đã thanh toán
-        foreach (var inv in unpaidInvoices)
+        // Hóa đơn được trừ đủ → Paid; trừ một phần → ghi nhận số đã trừ, phần còn lại vẫn Unpaid
+        foreach (var (inv, amount) in deductions)
         {
-            inv.Status = InvoiceStatus.Paid;
-            _db.Payments.Add(new Payment { InvoiceId = inv.Id, Amount = inv.Total, Note = "Trừ vào tiền cọc khi trả phòng", ConfirmedAt = DateTime.UtcNow });
+            var fullyCovered = amount >= inv.Total;
+            if (fullyCovered) inv.Status = InvoiceStatus.Paid;
+            _db.Payments.Add(new Payment
+            {
+                InvoiceId = inv.Id, Amount = amount, ConfirmedAt = DateTime.UtcNow,
+                Note = fullyCovered ? "Trừ vào tiền cọc khi trả phòng" : "Trừ một phần vào tiền cọc khi trả phòng"
+            });
         }
 
         // Đóng các yêu cầu gia hạn/trả phòng đang Pending của hợp đồng
@@ -574,7 +590,9 @@ public class RentalService : IRentalService
                 var co = checkout.First(a => a.RoomAssetId == ra.Id);
                 if (co.Quantity <= 0)
                 {
-                    _db.RoomAssets.Remove(ra);
+                    // Thất lạc: giữ bản ghi vì biên bản còn tham chiếu (FK Restrict, Quantity >= 1)
+                    ra.Condition = AssetCondition.Broken;
+                    ra.Note = $"Thất lạc khi trả phòng (hợp đồng #{contractId}).";
                 }
                 else
                 {

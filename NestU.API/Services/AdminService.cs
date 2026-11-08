@@ -203,10 +203,16 @@ public class AdminService : IAdminService
             throw ApiException.BadRequest("Trạng thái xử lý không hợp lệ (Resolved, Dismissed).");
         r.Status = rStatus; r.ResolveNote = dto.Note; r.ResolvedAt = DateTime.UtcNow;
 
-        if (r.Status == ReportStatus.Resolved && dto.Action == "HideRoom" && r.TargetType == ReportTargetType.Room)
+        if (r.Status == ReportStatus.Resolved && dto.Action == "HideHouse")
         {
-            var room = await _db.Rooms.FirstOrDefaultAsync(x => x.Id == r.TargetId);
-            if (room is not null && room.Status == RoomStatus.Available) room.Status = RoomStatus.Maintenance;
+            int? houseId = r.TargetType switch
+            {
+                ReportTargetType.House => r.TargetId,
+                ReportTargetType.Room => await _db.Rooms.Where(x => x.Id == r.TargetId).Select(x => (int?)x.BoardingHouseId).FirstOrDefaultAsync(),
+                _ => throw ApiException.BadRequest("Khiếu nại về chủ trọ không gắn với một tin cụ thể, hãy chọn khóa chủ trọ.")
+            };
+            var house = await _db.BoardingHouses.FirstOrDefaultAsync(h => h.Id == houseId);
+            if (house is not null) house.IsHidden = true;
         }
         if (r.Status == ReportStatus.Resolved && dto.Action == "LockLandlord")
         {
@@ -230,6 +236,26 @@ public class AdminService : IAdminService
         }
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
+    }
+
+    // ----- Nhà trọ (ẩn/hiện tin) -----
+    public async Task<List<AdminHouseDto>> GetHousesAsync()
+    {
+        var rows = await _db.BoardingHouses.AsNoTracking().OrderBy(h => h.Name)
+            .Select(h => new { h.Id, h.Name, h.Address, LandlordName = h.Landlord.FullName, h.Status, h.IsHidden, RoomCount = h.Rooms.Count })
+            .ToListAsync();
+        return rows.Select(h => new AdminHouseDto
+        {
+            Id = h.Id, Name = h.Name, Address = h.Address, LandlordName = h.LandlordName,
+            Status = h.Status.ToString(), IsHidden = h.IsHidden, RoomCount = h.RoomCount
+        }).ToList();
+    }
+
+    public async Task SetHouseHiddenAsync(int id, SetHouseHiddenDto dto)
+    {
+        var house = await _db.BoardingHouses.FirstOrDefaultAsync(h => h.Id == id) ?? throw ApiException.NotFound("Không tìm thấy nhà trọ.");
+        house.IsHidden = dto.IsHidden;
+        await _db.SaveChangesAsync();
     }
 
     // ----- Danh mục -----

@@ -52,6 +52,13 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> ReviewCertificate(int id, ReviewCertificateDto dto) { await _admin.ReviewCertificateAsync(id, dto); return NoContent(); }
 
     // ----- Khiếu nại -----
+    // ----- Nhà trọ (ẩn/hiện tin) -----
+    [HttpGet("houses")]
+    public async Task<ActionResult<List<AdminHouseDto>>> Houses() => Ok(await _admin.GetHousesAsync());
+
+    [HttpPut("houses/{id:int}/hidden")]
+    public async Task<IActionResult> SetHouseHidden(int id, SetHouseHiddenDto dto) { await _admin.SetHouseHiddenAsync(id, dto); return NoContent(); }
+
     [HttpGet("reports")]
     public async Task<ActionResult<List<ReportDto>>> Reports([FromQuery] string? status) => Ok(await _admin.GetReportsAsync(status));
 

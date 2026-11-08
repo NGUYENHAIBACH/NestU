@@ -62,6 +62,7 @@ app.UseStatusCodePagesWithReExecute("/error/{0}");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseMiddleware<VisitorCookieMiddleware>();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -13,6 +13,8 @@ public class JwtHandler : DelegatingHandler
         var token = _http.HttpContext?.User.FindFirst("access_token")?.Value;
         if (!string.IsNullOrEmpty(token))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (_http.HttpContext?.Items[VisitorCookieMiddleware.ItemKey] is string visitorId)
+            request.Headers.TryAddWithoutValidation("X-Visitor-Id", visitorId);
         return base.SendAsync(request, ct);
     }
 }

@@ -304,10 +304,10 @@ public class RoomService : IRoomService
     public async Task<RoomDetailDto> GetPublicDetailAsync(int roomId, string viewerKey)
     {
         var info = await _db.Rooms.AsNoTracking().Where(r => r.Id == roomId)
-            .Select(r => new { r.BoardingHouse.Status }).FirstOrDefaultAsync() ?? throw ApiException.NotFound("Không tìm thấy phòng.");
-        if (info.Status != HouseStatus.Active) throw ApiException.NotFound("Phòng này chưa được công khai.");
+            .Select(r => new { r.BoardingHouse.Status, r.BoardingHouse.IsHidden }).FirstOrDefaultAsync() ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (info.Status != HouseStatus.Active || info.IsHidden) throw ApiException.NotFound("Phòng này chưa được công khai.");
 
-        // Lượt xem: mỗi người (IP/user) chỉ tính 1 lần trong 30 phút
+        // Lượt xem: mỗi người (userId/visitorId) chỉ tính 1 lần trong 30 phút
         var cacheKey = $"view:{roomId}:{viewerKey}";
         if (!_cache.TryGetValue(cacheKey, out _))
         {

@@ -20,6 +20,9 @@ public interface IAdminService
     Task<List<ReportDto>> GetReportsAsync(string? status);
     Task ResolveReportAsync(int id, ResolveReportDto dto);
 
+    Task<List<AdminHouseDto>> GetHousesAsync();
+    Task SetHouseHiddenAsync(int id, SetHouseHiddenDto dto);
+
     Task<List<CatalogItemDto>> GetCatalogAsync(string type);
     Task<CatalogItemDto> CreateCatalogAsync(string type, CatalogItemDto dto);
     Task UpdateCatalogAsync(string type, int id, CatalogItemDto dto);
