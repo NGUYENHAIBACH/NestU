@@ -79,6 +79,10 @@ public class AdminController : ControllerBase
     [HttpDelete("catalog/{type}/{id:int}")]
     public async Task<IActionResult> DeleteCatalog(string type, int id) { await _admin.DeleteCatalogAsync(type, id); return NoContent(); }
 
+    /// <summary>Gộp khu vực {id} vào khu vực đích: chuyển hết nhà trọ sang rồi xóa khu vực {id}.</summary>
+    [HttpPost("catalog/areas/{id:int}/merge")]
+    public async Task<ActionResult<MergeAreaResultDto>> MergeArea(int id, MergeAreaDto dto) => Ok(await _admin.MergeAreaAsync(id, dto.TargetId));
+
     // ----- Thống kê -----
     [HttpGet("stats")]
     public async Task<ActionResult<AdminStatsDto>> Stats() => Ok(await _admin.GetStatsAsync());
