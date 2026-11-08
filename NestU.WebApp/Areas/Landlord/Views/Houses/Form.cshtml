@@ -1,29 +1,492 @@
 @model NestU.WebApp.Models.Houses.CreateHouseDto
-@{ var edit = Model.Id > 0; ViewData["Title"] = edit ? "Sửa nhà trọ" : "Thêm nhà trọ"; }
-<div class="card p-4">
-    <h1 class="h4 mb-3">@ViewData["Title"]</h1>
-    <form method="post" asp-action="@(edit ? "Edit" : "Create")" asp-route-id="@(edit ? Model.Id : null)">
-        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
-        <div class="row">
-            <div class="col-md-8 mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
-            <div class="col-md-4 mb-3"><label asp-for="AreaId" class="form-label"></label><select asp-for="AreaId" asp-items="ViewBag.Areas" class="form-select"><option value="">-- Chọn --</option></select><span asp-validation-for="AreaId" class="text-danger small"></span></div>
-            <div class="col-12 mb-3"><label asp-for="Address" class="form-label"></label><input asp-for="Address" class="form-control" /><span asp-validation-for="Address" class="text-danger small"></span></div>
-            <div class="col-md-3 mb-3"><label asp-for="TotalFloors" class="form-label"></label><input asp-for="TotalFloors" type="number" min="1" max="50" class="form-control" /><span asp-validation-for="TotalFloors" class="text-danger small"></span></div>
-            <div class="col-md-3 mb-3"><label asp-for="ElectricityPrice" class="form-label"></label><input asp-for="ElectricityPrice" type="number" step="100" min="1" max="4000" class="form-control" /><div class="form-text">Quy định: tối đa 4.000đ/kWh</div><span asp-validation-for="ElectricityPrice" class="text-danger small"></span></div>
-            <div class="col-md-3 mb-3"><label asp-for="WaterPrice" class="form-label"></label><input asp-for="WaterPrice" type="number" step="1000" class="form-control" /><span asp-validation-for="WaterPrice" class="text-danger small"></span></div>
-            <div class="col-md-3 mb-3"><label asp-for="WaterBillingType" class="form-label"></label><select asp-for="WaterBillingType" class="form-select"><option value="PerM3">Theo m³ (ghi chỉ số)</option><option value="PerPerson">Theo người</option></select></div>
-            <div class="col-md-4 mb-3"><label asp-for="AllowedTenantType" class="form-label"></label><select asp-for="AllowedTenantType" class="form-select"><option value="All">Mọi đối tượng</option><option value="StudentOnly">Chỉ sinh viên</option></select></div>
-            <div class="col-md-4 mb-3"><label asp-for="Latitude" class="form-label"></label><input asp-for="Latitude" type="number" step="any" class="form-control" /></div>
-            <div class="col-md-4 mb-3"><label asp-for="Longitude" class="form-label"></label><input asp-for="Longitude" type="number" step="any" class="form-control" /></div>
-            <div class="col-12 mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
+@{
+    var edit = Model.Id > 0;
+    ViewData["Title"] = edit ? "Sửa nhà trọ" : "Thêm nhà trọ";
+}
+
+<div class="card p-4 shadow-sm border-0">
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+        <div>
+            <h1 class="h4 mb-1 text-primary fw-bold">@ViewData["Title"]</h1>
+            <p class="text-muted small mb-0">Điền thông tin chi tiết nhà trọ theo quy chuẩn vận hành của NestU</p>
         </div>
-        <h2 class="h6 mt-2">Tài khoản nhận tiền (hiện trên hóa đơn / mã QR)</h2>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Quay lại
+        </a>
+    </div>
+
+    <form method="post" asp-action="@(edit ? "Edit" : "Create")" asp-route-id="@(edit ? Model.Id : null)" id="houseForm">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+        <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-info-circle me-1"></i> 1. Thông tin chung</h6>
         <div class="row">
-            <div class="col-md-3 mb-3"><label asp-for="BankCode" class="form-label"></label><input asp-for="BankCode" class="form-control" placeholder="VCB" /></div>
-            <div class="col-md-4 mb-3"><label asp-for="BankAccount" class="form-label"></label><input asp-for="BankAccount" class="form-control" /></div>
-            <div class="col-md-5 mb-3"><label asp-for="AccountName" class="form-label"></label><input asp-for="AccountName" class="form-control" /></div>
+            <div class="col-md-8 mb-3">
+                <label asp-for="Name" class="form-label fw-semibold"></label>
+                <input asp-for="Name" class="form-control" placeholder="Ví dụ: KTX Ánh Dương 1, Tòa nhà Bình An..." />
+                <span asp-validation-for="Name" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label asp-for="AreaId" class="form-label fw-semibold"></label>
+                <select asp-for="AreaId" asp-items="ViewBag.Areas" class="form-select" id="areaSelect">
+                    <option value="">-- Chọn khu vực --</option>
+                </select>
+                <span asp-validation-for="AreaId" class="text-danger small"></span>
+                <div class="form-text small">Khu vực sinh viên tìm kiếm phòng trọ</div>
+            </div>
         </div>
-        <button class="btn btn-primary">@(edit ? "Lưu thay đổi" : "Tạo nhà trọ")</button>
-        <a asp-action="Index" class="btn btn-link">Quay lại</a>
+
+        <h6 class="fw-bold text-secondary mt-2 mb-3"><i class="bi bi-geo-alt me-1"></i> 2. Địa chỉ hành chính (Tự động chuẩn hóa)</h6>
+        <div class="card bg-light border-0 p-3 mb-3">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Quốc gia <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm bg-white" value="Việt Nam" readonly />
+                    <div class="form-text extra-small" style="font-size: 0.75rem;">Cố định khu vực Việt Nam</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Tỉnh / Thành phố <span class="text-danger">*</span></label>
+                    <select id="addrProvince" class="form-select form-select-sm">
+                        <option value="">-- Đang tải danh sách... --</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Quận / Huyện <span class="text-danger">*</span></label>
+                    <select id="addrDistrict" class="form-select form-select-sm" disabled>
+                        <option value="">-- Chọn Tỉnh/TP trước --</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Phường / Xã <span class="text-danger">*</span></label>
+                    <select id="addrWard" class="form-select form-select-sm" disabled>
+                        <option value="">-- Chọn Quận/Huyện trước --</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label small text-muted">Số nhà <span class="text-danger">*</span></label>
+                    <input type="text" id="addrHouseNumber" class="form-control form-control-sm" placeholder="Ví dụ: 12/4, 45B..." />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label small text-muted">Tên đường / Phố <span class="text-danger">*</span></label>
+                    <input type="text" id="addrStreet" class="form-control form-control-sm" placeholder="Ví dụ: Võ Văn Ngân, Lê Văn Việt..." />
+                </div>
+
+                <div class="col-12 pt-2 border-top">
+                    <label asp-for="Address" class="form-label small fw-bold text-dark">Địa chỉ hoàn chỉnh (Lưu vào hệ thống) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white text-danger"><i class="bi bi-geo-alt-fill"></i></span>
+                        <input asp-for="Address" id="fullAddress" class="form-control" placeholder="Địa chỉ sẽ tự động tổng hợp từ các trường hành chính trên..." />
+                        <button class="btn btn-outline-secondary" type="button" id="btnRefreshAddr" title="Tổng hợp lại từ các ô đã chọn">
+                            <i class="bi bi-arrow-repeat"></i> Tổng hợp lại
+                        </button>
+                    </div>
+                    <span asp-validation-for="Address" class="text-danger small"></span>
+                    <div class="form-text small">Bạn có thể chọn nhanh từ dropdown hoặc chỉnh sửa trực tiếp chuỗi địa chỉ trên nếu cần.</div>
+                </div>
+            </div>
+        </div>
+
+        <h6 class="fw-bold text-secondary mt-3 mb-3"><i class="bi bi-sliders me-1"></i> 3. Cấu hình vận hành & Chi phí</h6>
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <label asp-for="TotalFloors" class="form-label fw-semibold"></label>
+                <input asp-for="TotalFloors" type="number" min="1" max="50" class="form-control" />
+                <span asp-validation-for="TotalFloors" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label asp-for="ElectricityPrice" class="form-label fw-semibold"></label>
+                <input asp-for="ElectricityPrice" type="number" step="100" min="1" max="4000" class="form-control" />
+                <div class="form-text text-success small"><i class="bi bi-shield-check"></i> Quy định: tối đa 4.000đ/kWh</div>
+                <span asp-validation-for="ElectricityPrice" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label asp-for="WaterPrice" class="form-label fw-semibold"></label>
+                <input asp-for="WaterPrice" type="number" step="1000" class="form-control" />
+                <span asp-validation-for="WaterPrice" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label asp-for="WaterBillingType" class="form-label fw-semibold"></label>
+                <select asp-for="WaterBillingType" class="form-select">
+                    <option value="PerM3">Theo m³ (ghi chỉ số)</option>
+                    <option value="PerPerson">Theo người</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label asp-for="AllowedTenantType" class="form-label fw-semibold"></label>
+                <select asp-for="AllowedTenantType" class="form-select">
+                    <option value="All">Mọi đối tượng</option>
+                    <option value="StudentOnly">Chỉ sinh viên</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label asp-for="Latitude" class="form-label fw-semibold"></label>
+                <input asp-for="Latitude" type="number" step="any" class="form-control" placeholder="Ví dụ: 10.8505" />
+            </div>
+            <div class="col-md-4 mb-3">
+                <label asp-for="Longitude" class="form-label fw-semibold"></label>
+                <input asp-for="Longitude" type="number" step="any" class="form-control" placeholder="Ví dụ: 106.7719" />
+            </div>
+            <div class="col-12 mb-3">
+                <label asp-for="Description" class="form-label fw-semibold"></label>
+                <textarea asp-for="Description" class="form-control" rows="3" placeholder="Mô tả tiện ích xung quanh, giờ giấc, an ninh..."></textarea>
+            </div>
+        </div>
+
+        <h6 class="fw-bold text-secondary mt-4 mb-3"><i class="bi bi-credit-card me-1 text-primary"></i> 4. Tài khoản nhận tiền (Tạo mã VietQR tự động)</h6>
+        <div class="card bg-light border-0 p-3 mb-4">
+            <div class="row g-4 align-items-center">
+                <!-- Cột trái: Form nhập thông tin ngân hàng -->
+                <div class="col-lg-7">
+                    <p class="text-muted small mb-3">
+                        Thiết lập tài khoản ngân hàng để hệ thống tự động tạo mã VietQR thanh toán tiền phòng và đặt cọc cho khách thuê.
+                    </p>
+
+                    <!-- Ngân hàng thụ hưởng -->
+                    <div class="mb-3">
+                        <label asp-for="BankCode" class="form-label small fw-semibold text-secondary">Ngân hàng thụ hưởng <span class="text-danger">*</span></label>
+                        <input asp-for="BankCode" id="bankCodeInput" class="form-control form-control-sm bg-white" placeholder="Chọn hoặc nhập mã ngân hàng (MB, VCB...)" list="bankList" />
+                        <datalist id="bankList">
+                            <option value="MB">MB Bank (Ngân hàng Quân Đội)</option>
+                            <option value="VCB">Vietcombank (Ngoại thương VN)</option>
+                            <option value="TCB">Techcombank (Kỹ Thương)</option>
+                            <option value="VPB">VPBank (Việt Nam Thịnh Vượng)</option>
+                            <option value="ACB">ACB (Á Châu)</option>
+                            <option value="BIDV">BIDV (Đầu tư & Phát triển VN)</option>
+                            <option value="ICB">VietinBank (Công Thương VN)</option>
+                            <option value="TPB">TPBank (Tiên Phong)</option>
+                        </datalist>
+                        
+                        <div class="mt-2">
+                            <span class="text-muted extra-small d-block mb-1" style="font-size: 0.75rem;">Ngân hàng phổ biến:</span>
+                            <div class="d-flex flex-wrap gap-1" id="quickBanks">
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="MB" data-name="MB Bank">MB Bank</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="VCB" data-name="Vietcombank">Vietcombank</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="TCB" data-name="Techcombank">Techcombank</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="VPB" data-name="VPBank">VPBank</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="ACB" data-name="ACB">ACB</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="BIDV" data-name="BIDV">BIDV</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="ICB" data-name="VietinBank">VietinBank</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary bg-white text-dark py-0 px-2 rounded-pill" style="font-size: 0.75rem;" data-code="TPB" data-name="TPBank">TPBank</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Số tài khoản ngân hàng -->
+                    <div class="mb-3">
+                        <label asp-for="BankAccount" class="form-label small fw-semibold text-secondary">Số tài khoản ngân hàng <span class="text-danger">*</span></label>
+                        <input asp-for="BankAccount" id="bankAccountInput" class="form-control form-control-sm bg-white font-monospace" placeholder="Nhập số tài khoản ngân hàng" />
+                    </div>
+
+                    <!-- Tên chủ tài khoản -->
+                    <div class="mb-3">
+                        <label asp-for="AccountName" class="form-label small fw-semibold text-secondary">Tên chủ tài khoản (in hoa không dấu) <span class="text-danger">*</span></label>
+                        <input asp-for="AccountName" id="accountNameInput" class="form-control form-control-sm bg-white text-uppercase" placeholder="Ví dụ: NGUYEN VAN A" />
+                    </div>
+
+                    <!-- Thông báo ghi chú -->
+                    <div class="alert alert-light border small text-muted mb-0 py-2 px-3 d-flex align-items-start gap-2">
+                        <i class="bi bi-info-circle text-primary mt-1"></i>
+                        <div>
+                            Tài khoản này sẽ hiển thị trực tiếp trên hóa đơn hàng tháng và mã quét <strong>VietQR</strong> để khách thuê thanh toán chuyển khoản.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cột phải: Thẻ VietQR xem trước hài hòa với NestU -->
+                <div class="col-lg-5">
+                    <div class="mb-2 d-flex align-items-center gap-1 text-secondary small fw-bold">
+                        <i class="bi bi-eye text-primary"></i> Thẻ VietQR xem trước
+                    </div>
+
+                    <!-- Thẻ ngân hàng hiện đại phong cách NestU -->
+                    <div class="card border-0 p-4 text-white shadow-sm position-relative overflow-hidden" 
+                         style="border-radius: 16px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); min-height: 215px;">
+                        
+                        <!-- Header thẻ: Badge VietQR và Icon QR -->
+                        <div class="d-flex justify-content-between align-items-start mb-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge px-2 py-1" style="background: rgba(255,106,61,0.25); color: #ff8c69; font-size: 0.72rem; letter-spacing: 0.5px;">
+                                    <i class="bi bi-qr-code-scan me-1"></i>VIETQR
+                                </span>
+                            </div>
+                            <div class="text-light opacity-75 fs-4">
+                                <i class="bi bi-wifi"></i>
+                            </div>
+                        </div>
+
+                        <!-- Tên ngân hàng -->
+                        <div class="text-uppercase fw-bold text-light opacity-90 mb-2" id="previewBank" style="font-size: 0.95rem; letter-spacing: 0.5px;">
+                            @(string.IsNullOrEmpty(Model.BankCode) ? "MB BANK / VIETCOMBANK" : Model.BankCode.ToUpper())
+                        </div>
+
+                        <!-- Số tài khoản -->
+                        <div class="fw-bold font-monospace fs-4 mb-3" id="previewAccount" style="letter-spacing: 2px; color: #38bdf8;">
+                            @(string.IsNullOrEmpty(Model.BankAccount) ? "0000 0000 0000" : Model.BankAccount)
+                        </div>
+
+                        <!-- Tên chủ tài khoản -->
+                        <div class="d-flex justify-content-between align-items-end mt-auto pt-2 border-top border-secondary border-opacity-25">
+                            <div>
+                                <div class="extra-small text-muted text-uppercase" style="font-size: 0.65rem;">Chủ tài khoản</div>
+                                <div class="fw-bold text-uppercase text-white" id="previewName" style="font-size: 0.85rem; letter-spacing: 1px;">
+                                    @(string.IsNullOrEmpty(Model.AccountName) ? "NGUYEN VAN A" : Model.AccountName.ToUpper())
+                                </div>
+                            </div>
+                            <div>
+                                <i class="bi bi-shield-check text-success fs-5" title="Đã bảo vệ"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-muted small text-center mt-2 mb-0" style="font-size: 0.75rem;">
+                        Tài khoản nhận tiền tự động cho tin đăng và hợp đồng trọ này.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-top d-flex gap-2">
+            <button class="btn btn-primary px-4">
+                <i class="bi bi-check-circle me-1"></i> @(edit ? "Lưu thay đổi" : "Tạo nhà trọ")
+            </button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Hủy bỏ</a>
+        </div>
     </form>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const provinceSelect = document.getElementById("addrProvince");
+            const districtSelect = document.getElementById("addrDistrict");
+            const wardSelect = document.getElementById("addrWard");
+            const houseNumInput = document.getElementById("addrHouseNumber");
+            const streetInput = document.getElementById("addrStreet");
+            const fullAddressInput = document.getElementById("fullAddress");
+            const btnRefreshAddr = document.getElementById("btnRefreshAddr");
+            const areaSelect = document.getElementById("areaSelect");
+
+            let isUserManualEditing = @(edit && !string.IsNullOrEmpty(Model.Address) ? "true" : "false");
+
+            // 1. Load danh sách Tỉnh / Thành phố từ Open API
+            fetch("https://provinces.open-api.vn/api/v1/p/")
+                .then(res => res.json())
+                .then(provinces => {
+                    provinceSelect.innerHTML = '<option value="">-- Chọn Tỉnh / Thành phố --</option>';
+                    provinces.forEach(p => {
+                        const opt = document.createElement("option");
+                        opt.value = p.code;
+                        opt.textContent = p.name;
+                        provinceSelect.appendChild(opt);
+                    });
+                })
+                .catch(err => {
+                    console.error("Lỗi tải Tỉnh/Thành:", err);
+                    provinceSelect.innerHTML = '<option value="">-- Không thể tải danh sách (Hãy nhập thủ công) --</option>';
+                });
+
+            // 2. Khi thay đổi Tỉnh / Thành phố -> Load Quận / Huyện
+            provinceSelect.addEventListener("change", function () {
+                const provCode = this.value;
+                districtSelect.innerHTML = '<option value="">-- Đang tải Quận/Huyện... --</option>';
+                districtSelect.disabled = true;
+                wardSelect.innerHTML = '<option value="">-- Chọn Quận/Huyện trước --</option>';
+                wardSelect.disabled = true;
+
+                if (!provCode) {
+                    districtSelect.innerHTML = '<option value="">-- Chọn Tỉnh/TP trước --</option>';
+                    updateAddressString();
+                    return;
+                }
+
+                fetch(`https://provinces.open-api.vn/api/v1/p/${provCode}?depth=2`)
+                    .then(res => res.json())
+                    .then(data => {
+                        districtSelect.innerHTML = '<option value="">-- Chọn Quận / Huyện --</option>';
+                        if (data.districts && data.districts.length > 0) {
+                            data.districts.forEach(d => {
+                                const opt = document.createElement("option");
+                                opt.value = d.code;
+                                opt.textContent = d.name;
+                                districtSelect.appendChild(opt);
+                            });
+                            districtSelect.disabled = false;
+                        } else {
+                            districtSelect.innerHTML = '<option value="">-- Không có quận/huyện --</option>';
+                        }
+                        updateAddressString();
+                    })
+                    .catch(err => {
+                        console.error("Lỗi tải Quận/Huyện:", err);
+                        districtSelect.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+                    });
+            });
+
+            // 3. Khi thay đổi Quận / Huyện -> Load Phường / Xã & Tự động gợi ý AreaId
+            districtSelect.addEventListener("change", function () {
+                const distCode = this.value;
+                const distName = this.options[this.selectedIndex] ? this.options[this.selectedIndex].text : "";
+
+                wardSelect.innerHTML = '<option value="">-- Đang tải Phường/Xã... --</option>';
+                wardSelect.disabled = true;
+
+                // Tự động map với AreaId trong hệ thống nếu có
+                if (distName && areaSelect) {
+                    const cleanDistName = distName.replace(/^(Quận|Huyện|Thị xã|Thành phố)\s+/i, '').trim().toLowerCase();
+                    for (let i = 0; i < areaSelect.options.length; i++) {
+                        const areaText = areaSelect.options[i].text.toLowerCase();
+                        if (areaText.includes(cleanDistName) || cleanDistName.includes(areaText)) {
+                            areaSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (!distCode) {
+                    wardSelect.innerHTML = '<option value="">-- Chọn Quận/Huyện trước --</option>';
+                    updateAddressString();
+                    return;
+                }
+
+                fetch(`https://provinces.open-api.vn/api/v1/d/${distCode}?depth=2`)
+                    .then(res => res.json())
+                    .then(data => {
+                        wardSelect.innerHTML = '<option value="">-- Chọn Phường / Xã --</option>';
+                        if (data.wards && data.wards.length > 0) {
+                            data.wards.forEach(w => {
+                                const opt = document.createElement("option");
+                                opt.value = w.code;
+                                opt.textContent = w.name;
+                                wardSelect.appendChild(opt);
+                            });
+                            wardSelect.disabled = false;
+                        } else {
+                            wardSelect.innerHTML = '<option value="">-- Không có phường/xã --</option>';
+                        }
+                        updateAddressString();
+                    })
+                    .catch(err => {
+                        console.error("Lỗi tải Phường/Xã:", err);
+                        wardSelect.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+                    });
+            });
+
+            // 4. Khi thay đổi Phường/Xã, Số nhà hoặc Tên đường
+            wardSelect.addEventListener("change", updateAddressString);
+            houseNumInput.addEventListener("input", updateAddressString);
+            streetInput.addEventListener("input", updateAddressString);
+
+            // 5. Hàm tổng hợp chuỗi địa chỉ đầy đủ
+            function updateAddressString(force = false) {
+                if (isUserManualEditing && !force) return;
+
+                const provText = provinceSelect.value ? provinceSelect.options[provinceSelect.selectedIndex]?.text : "";
+                const distText = districtSelect.value ? districtSelect.options[districtSelect.selectedIndex]?.text : "";
+                const wardText = wardSelect.value ? wardSelect.options[wardSelect.selectedIndex]?.text : "";
+                const houseNum = houseNumInput.value.trim();
+                const street = streetInput.value.trim();
+
+                let streetPart = "";
+                if (houseNum && street) {
+                    streetPart = `${houseNum} ${street}`;
+                } else if (houseNum) {
+                    streetPart = houseNum;
+                } else if (street) {
+                    streetPart = street;
+                }
+
+                const parts = [];
+                if (streetPart) parts.push(streetPart);
+                if (wardText && !wardText.startsWith("--")) parts.push(wardText);
+                if (distText && !distText.startsWith("--")) parts.push(distText);
+                if (provText && !provText.startsWith("--")) parts.push(provText);
+
+                if (parts.length > 0) {
+                    fullAddressInput.value = parts.join(", ");
+                }
+            }
+
+            // Người dùng gõ tay vào ô fullAddress -> đánh dấu là sửa tay
+            fullAddressInput.addEventListener("input", function () {
+                isUserManualEditing = true;
+            });
+
+            // Nút "Tổng hợp lại" ép buộc cập nhật từ các ô hành chính
+            btnRefreshAddr.addEventListener("click", function () {
+                isUserManualEditing = false;
+                updateAddressString(true);
+            });
+
+            // ================= 6. Xử lý Thẻ VietQR xem trước =================
+            const bankCodeInput = document.getElementById("bankCodeInput");
+            const bankAccountInput = document.getElementById("bankAccountInput");
+            const accountNameInput = document.getElementById("accountNameInput");
+            const previewBank = document.getElementById("previewBank");
+            const previewAccount = document.getElementById("previewAccount");
+            const previewName = document.getElementById("previewName");
+            const quickBankBtns = document.querySelectorAll("#quickBanks button");
+
+            function removeVietnameseTones(str) {
+                if (!str) return "";
+                str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+                str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+                str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+                str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+                str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+                str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+                str = str.replace(/đ/g, "d");
+                str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+                str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+                str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+                str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+                str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+                str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+                str = str.replace(/Đ/g, "D");
+                return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+            }
+
+            function updateCardPreview() {
+                const bCode = bankCodeInput.value.trim().toUpperCase();
+                const bAcc = bankAccountInput.value.trim();
+                const aName = accountNameInput.value.trim();
+
+                previewBank.textContent = bCode ? bCode : "MB BANK / VIETCOMBANK";
+                previewAccount.textContent = bAcc ? bAcc.replace(/(.{4})/g, '$1 ').trim() : "0000 0000 0000";
+                previewName.textContent = aName ? aName : "NGUYEN VAN A";
+            }
+
+            // Click vào các nút ngân hàng phổ biến
+            quickBankBtns.forEach(btn => {
+                btn.addEventListener("click", function () {
+                    const code = this.getAttribute("data-code");
+                    const name = this.getAttribute("data-name");
+                    bankCodeInput.value = code;
+                    previewBank.textContent = name.toUpperCase() + ` (${code})`;
+                    updateCardPreview();
+                    bankAccountInput.focus();
+                });
+            });
+
+            // Khi người dùng nhập tên ngân hàng
+            bankCodeInput.addEventListener("input", function () {
+                updateCardPreview();
+            });
+
+            // Khi người dùng nhập số tài khoản
+            bankAccountInput.addEventListener("input", function () {
+                updateCardPreview();
+            });
+
+            // Khi nhập tên chủ tài khoản: tự động in hoa và bỏ dấu tiếng Việt chuẩn quy định ngân hàng
+            accountNameInput.addEventListener("input", function () {
+                const cleaned = removeVietnameseTones(this.value);
+                this.value = cleaned;
+                updateCardPreview();
+            });
+
+            // Khởi tạo hiển thị nếu đang chỉnh sửa
+            updateCardPreview();
+        });
+    </script>
+}

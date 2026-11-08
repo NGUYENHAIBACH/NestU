@@ -19,6 +19,7 @@ public class UniversityConfiguration : IEntityTypeConfiguration<University>
     {
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.ShortName).HasMaxLength(30);
+        b.HasIndex(x => x.Name).IsUnique();
     }
 }
 

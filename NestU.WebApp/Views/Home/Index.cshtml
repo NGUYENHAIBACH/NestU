@@ -1,7 +1,7 @@
 @model List<NestU.WebApp.Models.Rooms.RoomListDto>
 @{
     ViewData["Title"] = "Trang chủ";
-    NestU.WebApp.ApiClients.HomeStatsDto? stats = ViewBag.Stats;
+    NestU.WebApp.Models.Public.HomeStatsDto? stats = ViewBag.Stats;
 }
 <section class="hero rounded-4 p-4 p-md-5 mb-4 text-white">
     <div class="d-flex align-items-center gap-2 small mb-3 opacity-75">

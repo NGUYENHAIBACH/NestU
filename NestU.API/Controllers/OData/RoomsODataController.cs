@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using NestU.API.Data;
 using NestU.API.DTOs.Rooms;
 using NestU.API.Entities.Enums;
+using NestU.API.Services.Interfaces;
 
 namespace NestU.API.Controllers.OData;
 
@@ -14,13 +15,13 @@ namespace NestU.API.Controllers.OData;
 /// </summary>
 public class RoomsController : ODataController
 {
-    private readonly NestUDbContext _db;
-    public RoomsController(NestUDbContext db) => _db = db;
+    private readonly IRoomService _rooms;
+    public RoomsController(IRoomService rooms) => _rooms = rooms;
 
     [EnableQuery(PageSize = 20, MaxTop = 50,
         AllowedQueryOptions = AllowedQueryOptions.Filter | AllowedQueryOptions.OrderBy | AllowedQueryOptions.Top
                             | AllowedQueryOptions.Skip | AllowedQueryOptions.Select | AllowedQueryOptions.Count)]
-    public IQueryable<RoomListDto> Get() => RoomQueries.PublicRooms(_db);
+    public IQueryable<RoomListDto> Get() => _rooms.GetPublicRoomsQuery();
 }
 
 public static class RoomQueries

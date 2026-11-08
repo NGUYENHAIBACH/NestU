@@ -75,8 +75,15 @@ public class AdminService : IAdminService
 
         if (current.Contains(Roles.Landlord) && await _db.BoardingHouses.AnyAsync(h => h.LandlordId == userId))
             throw ApiException.Conflict("Chủ trọ đang sở hữu nhà trọ, không đổi role được.");
-        if (current.Contains(Roles.Tenant) && await _db.Contracts.AnyAsync(c => c.TenantId == userId && c.Status == ContractStatus.Active))
-            throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực, không đổi role được.");
+        if (current.Contains(Roles.Tenant))
+        {
+            if (await _db.Contracts.AnyAsync(c => c.TenantId == userId && c.Status == ContractStatus.Active))
+                throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực, không đổi role được.");
+            if (await _db.RentalRequests.AnyAsync(r => r.TenantId == userId && r.Status == RentalRequestStatus.Pending))
+                throw new BusinessRuleException("Người thuê đang có yêu cầu thuê phòng chờ duyệt, không thể đổi role.");
+            if (await _db.ViewingAppointments.AnyAsync(a => a.TenantId == userId && a.Status == AppointmentStatus.Pending))
+                throw new BusinessRuleException("Người thuê đang có lịch xem phòng chờ xác nhận, không thể đổi role.");
+        }
 
         await using var tx = await _db.Database.BeginTransactionAsync();
         await _users.RemoveFromRolesAsync(u, current);
@@ -112,7 +119,12 @@ public class AdminService : IAdminService
     {
         var p = await _db.LandlordProfiles.FirstOrDefaultAsync(x => x.Id == profileId) ?? throw ApiException.NotFound("Không tìm thấy hồ sơ.");
         if (p.ApprovalStatus == ApprovalStatus.Approved && dto.Approve) throw ApiException.Conflict("Hồ sơ đã được duyệt trước đó.");
+        if (p.ApprovalStatus == ApprovalStatus.Rejected && !dto.Approve) throw ApiException.Conflict("Hồ sơ đã bị từ chối trước đó.");
         if (!dto.Approve && string.IsNullOrWhiteSpace(dto.Note)) throw ApiException.BadRequest("Vui lòng ghi lý do từ chối.");
+
+        if (p.ApprovalStatus == ApprovalStatus.Approved && !dto.Approve && await _db.BoardingHouses.AnyAsync(h => h.LandlordId == p.UserId && h.Status == HouseStatus.Active))
+            throw ApiException.Conflict("Chủ trọ đang có nhà trọ hoạt động, không thể chuyển sang trạng thái Từ chối. Hãy khóa tài khoản hoặc xử lý nhà trọ trước.");
+
         p.ApprovalStatus = dto.Approve ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
         p.ReviewNote = dto.Note; p.ReviewedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -187,7 +199,9 @@ public class AdminService : IAdminService
         if (r.Status != ReportStatus.Open) throw ApiException.Conflict("Khiếu nại đã được xử lý.");
 
         await using var tx = await _db.Database.BeginTransactionAsync();
-        r.Status = Enum.Parse<ReportStatus>(dto.Status); r.ResolveNote = dto.Note; r.ResolvedAt = DateTime.UtcNow;
+        if (!Enum.TryParse<ReportStatus>(dto.Status, true, out var rStatus))
+            throw ApiException.BadRequest("Trạng thái xử lý không hợp lệ (Resolved, Dismissed).");
+        r.Status = rStatus; r.ResolveNote = dto.Note; r.ResolvedAt = DateTime.UtcNow;
 
         if (r.Status == ReportStatus.Resolved && dto.Action == "HideRoom" && r.TargetType == ReportTargetType.Room)
         {
@@ -204,8 +218,14 @@ public class AdminService : IAdminService
             };
             if (landlordUserId is not null)
             {
-                var u = await _db.Users.FirstAsync(x => x.Id == landlordUserId);
-                u.IsLocked = true;
+                var u = await _users.FindByIdAsync(landlordUserId);
+                if (u is not null)
+                {
+                    if (await _users.IsInRoleAsync(u, Roles.Admin))
+                        throw new BusinessRuleException("Không thể khóa tài khoản có vai trò Quản trị viên (Admin).");
+                    u.IsLocked = true;
+                    await _users.UpdateAsync(u);
+                }
             }
         }
         await _db.SaveChangesAsync();
@@ -237,6 +257,7 @@ public class AdminService : IAdminService
                 if (await _db.AssetTypes.AnyAsync(x => x.Name == name)) throw ApiException.Conflict("Loại tài sản đã tồn tại.");
                 var at = new AssetType { Name = name }; _db.AssetTypes.Add(at); await _db.SaveChangesAsync(); dto.Id = at.Id; break;
             case "universities":
+                if (await _db.Universities.AnyAsync(x => x.Name == name)) throw ApiException.Conflict("Trường đại học đã tồn tại.");
                 var u = new University { Name = name, ShortName = dto.ShortName, Latitude = dto.Latitude ?? 0, Longitude = dto.Longitude ?? 0 };
                 _db.Universities.Add(u); await _db.SaveChangesAsync(); dto.Id = u.Id; break;
             default: throw ApiException.NotFound("Danh mục không tồn tại.");
@@ -250,10 +271,34 @@ public class AdminService : IAdminService
         var name = dto.Name.Trim();
         switch (type)
         {
-            case "areas": { var e = await _db.Areas.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; break; }
-            case "amenities": { var e = await _db.Amenities.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; e.Icon = dto.Icon; break; }
-            case "asset-types": { var e = await _db.AssetTypes.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; break; }
-            case "universities": { var e = await _db.Universities.FindAsync(id) ?? throw ApiException.NotFound(); e.Name = name; e.ShortName = dto.ShortName; e.Latitude = dto.Latitude ?? e.Latitude; e.Longitude = dto.Longitude ?? e.Longitude; break; }
+            case "areas":
+            {
+                if (await _db.Areas.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên khu vực đã tồn tại.");
+                var e = await _db.Areas.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name;
+                break;
+            }
+            case "amenities":
+            {
+                if (await _db.Amenities.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên tiện ích đã tồn tại.");
+                var e = await _db.Amenities.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name; e.Icon = dto.Icon;
+                break;
+            }
+            case "asset-types":
+            {
+                if (await _db.AssetTypes.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên loại tài sản đã tồn tại.");
+                var e = await _db.AssetTypes.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name;
+                break;
+            }
+            case "universities":
+            {
+                if (await _db.Universities.AnyAsync(a => a.Name == name && a.Id != id)) throw ApiException.Conflict("Tên trường đại học đã tồn tại.");
+                var e = await _db.Universities.FindAsync(id) ?? throw ApiException.NotFound();
+                e.Name = name; e.ShortName = dto.ShortName; e.Latitude = dto.Latitude ?? e.Latitude; e.Longitude = dto.Longitude ?? e.Longitude;
+                break;
+            }
             default: throw ApiException.NotFound("Danh mục không tồn tại.");
         }
         await _db.SaveChangesAsync();

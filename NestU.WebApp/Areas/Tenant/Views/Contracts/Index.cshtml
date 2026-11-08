@@ -11,7 +11,7 @@
                 <td>Phòng @c.RoomNumber<div class="small text-secondary">@c.HouseName</div></td>
                 <td>@c.StartDate.ToString("dd/MM/yyyy") → @c.EndDate.ToString("dd/MM/yyyy")</td>
                 <td>@c.MonthlyRent.ToString("N0")đ</td><td>@c.DepositAmount.ToString("N0")đ</td>
-                <td><partial name="_StatusBadge" model="@(c.DisplayStatus == "Expired" ? "Overdue" : c.Status)" />@if (c.DisplayStatus == "Expired") { <div class="small text-danger">Đã hết hạn</div> }</td>
+                <td><partial name="_StatusBadge" model="@c.DisplayStatus" />@if (c.DisplayStatus == "Expired") { <div class="small text-danger">Đã hết hạn</div> }</td>
                 <td class="text-end"><a asp-action="Details" asp-route-id="@c.Id" class="btn btn-outline-dark btn-sm">Chi tiết</a></td>
             </tr>
         }

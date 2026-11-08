@@ -172,6 +172,76 @@ public static class DbSeeder
             }
         }
 
+        // ----- Nhà trọ Luxury 3 tầng của Landlord 1 -----
+        var luxuryHouse = new BoardingHouse
+        {
+            LandlordId = landlord1.Id,
+            Name = "Nhà Trọ Luxury",
+            Address = "45 Nguyễn Huệ",
+            AreaId = areas.First(a => a.Name == "Bình Thạnh").Id,
+            Latitude = 10.7769, Longitude = 106.7009,
+            TotalFloors = 3,
+            Status = HouseStatus.Active,
+            ElectricityPrice = 3500,
+            WaterPrice = 15000, WaterBillingType = WaterBillingType.PerM3,
+            AllowedTenantType = AllowedTenantType.All,
+            Description = "Vip sang trọng",
+            BankCode = "VCB", BankAccount = "0123456789", AccountName = "NGUYEN VAN CHU"
+        };
+        db.BoardingHouses.Add(luxuryHouse);
+        await db.SaveChangesAsync();
+
+        db.FireSafetyCertificates.Add(new FireSafetyCertificate
+        {
+            BoardingHouseId = luxuryHouse.Id, CertificateNo = "PCC-002-001",
+            FileUrl = "/uploads/seed/pccc-luxury.pdf", Status = CertificateStatus.Approved,
+            ReviewedAt = DateTime.UtcNow
+        });
+
+        var luxuryRoomsData = new[]
+        {
+            new { RoomNumber = "101", Floor = 1, Area = 22m, Price = 2100000m, Desc = "Phòng tầng 1 studio rộng rãi, đầy đủ tiện nghi, có gác lửng hiện đại", Imgs = new[] { "https://ankhoadesign.com.vn/wp-content/uploads/2024/09/mau-phong-tro-co-gac-lung-dep-hien-dai.jpg", "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "102", Floor = 1, Area = 22m, Price = 2100000m, Desc = "Phòng tầng 1 thoáng mát, có cửa sổ lớn đón gió tự nhiên", Imgs = new[] { "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "103", Floor = 1, Area = 25m, Price = 2300000m, Desc = "Phòng tầng 1 diện tích 25m², không gian yên tĩnh, an ninh tốt", Imgs = new[] { "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "201", Floor = 2, Area = 24m, Price = 2400000m, Desc = "Phòng tầng 2 ban công riêng rộng rãi, view thoáng, nhiều ánh sáng", Imgs = new[] { "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "202", Floor = 2, Area = 22m, Price = 2300000m, Desc = "Phòng tầng 2 thiết kế hiện đại, đầy đủ máy lạnh và WC riêng khép kín", Imgs = new[] { "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "203", Floor = 2, Area = 26m, Price = 2500000m, Desc = "Phòng tầng 2 studio cao cấp 26m², giờ giấc tự do không chung chủ", Imgs = new[] { "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "301", Floor = 3, Area = 25m, Price = 2600000m, Desc = "Phòng tầng 3 view toàn cảnh thoáng mát, ban công riêng đón nắng", Imgs = new[] { "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "302", Floor = 3, Area = 24m, Price = 2500000m, Desc = "Phòng tầng 3 nội thất mới 100%, máy lạnh inverter tiết kiệm điện", Imgs = new[] { "https://images.unsplash.com/photo-1502005229762-ee1b2b8ab32f?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1000&q=80" } },
+            new { RoomNumber = "303", Floor = 3, Area = 28m, Price = 2800000m, Desc = "Phòng tầng 3 căn góc 28m², 2 cửa sổ thoáng đãng, nội thất cao cấp", Imgs = new[] { "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&w=1000&q=80", "https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=80" } }
+        };
+
+        foreach (var d in luxuryRoomsData)
+        {
+            var r = new Room
+            {
+                BoardingHouseId = luxuryHouse.Id,
+                RoomNumber = d.RoomNumber,
+                Floor = d.Floor,
+                Area = d.Area,
+                Price = d.Price,
+                DepositAmount = d.Price,
+                Capacity = 2,
+                Status = RoomStatus.Available,
+                Description = d.Desc,
+                ViewCount = rnd.Next(5, 50)
+            };
+            for (var i = 0; i < d.Imgs.Length; i++)
+                r.Images.Add(new RoomImage { Url = d.Imgs[i], SortOrder = i });
+
+            r.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[0].Id }); // Wifi
+            r.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[1].Id }); // Máy lạnh
+            r.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[2].Id }); // WC riêng
+            r.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[3].Id }); // Chỗ để xe
+            r.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[7].Id }); // Giờ giấc tự do
+
+            r.Assets.Add(new RoomAsset { AssetTypeId = assetTypes[0].Id, Name = "Giường nệm 1m6 × 2m", Quantity = 1, EstimatedValue = 2200000, Note = "Gỗ công nghiệp mới 100%" });
+            r.Assets.Add(new RoomAsset { AssetTypeId = assetTypes[2].Id, Name = "Tủ quần áo 2 cánh", Quantity = 1, EstimatedValue = 1600000, Note = "Có gương soi" });
+            r.Assets.Add(new RoomAsset { AssetTypeId = assetTypes[6].Id, Name = "Quạt treo tường Senko", Quantity = 1, EstimatedValue = 350000, Note = "Có điều khiển từ xa" });
+
+            db.Rooms.Add(r);
+        }
+
         await db.SaveChangesAsync();
     }
 }

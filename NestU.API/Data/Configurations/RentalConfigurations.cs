@@ -11,6 +11,9 @@ public class ViewingAppointmentConfiguration : IEntityTypeConfiguration<ViewingA
         b.Property(x => x.Note).HasMaxLength(500);
         b.Property(x => x.RejectReason).HasMaxLength(500);
         b.HasIndex(x => new { x.TenantId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.RoomId }).IsUnique()
+            .HasFilter("[Status] = 'Pending'")
+            .HasDatabaseName("UX_Appointment_OnePendingPerRoomAndTenant");
         b.HasOne(x => x.Room).WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -28,6 +31,9 @@ public class RentalRequestConfiguration : IEntityTypeConfiguration<RentalRequest
         b.Property(x => x.Note).HasMaxLength(500);
         b.Property(x => x.RejectReason).HasMaxLength(500);
         b.HasIndex(x => new { x.RoomId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.RoomId }).IsUnique()
+            .HasFilter("[Status] = 'Pending'")
+            .HasDatabaseName("UX_RentalRequest_OnePendingPerRoomAndTenant");
         b.HasOne(x => x.Room).WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -42,6 +48,7 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract>
             t.HasCheckConstraint("CK_Contract_Dates", "[EndDate] > [StartDate]");
             t.HasCheckConstraint("CK_Contract_MonthlyRent", "[MonthlyRent] > 0");
             t.HasCheckConstraint("CK_Contract_Deposit", "[DepositAmount] >= 0");
+            t.HasCheckConstraint("CK_Contract_InitialReadings", "[InitialElectricIndex] >= 0 AND [InitialWaterIndex] >= 0");
         });
         // Mỗi người thuê một hợp đồng Active; mỗi phòng một hợp đồng Active
         b.HasIndex(x => x.TenantId).IsUnique().HasFilter("[Status] = 'Active'")
@@ -89,6 +96,8 @@ public class ContractChangeRequestConfiguration : IEntityTypeConfiguration<Contr
         b.Property(x => x.Reason).HasMaxLength(500);
         b.Property(x => x.DecisionNote).HasMaxLength(500);
         b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.ContractId).IsUnique().HasFilter("[Status] = 'Pending'")
+            .HasDatabaseName("UX_ContractChangeRequest_OnePendingPerContract");
     }
 }
 

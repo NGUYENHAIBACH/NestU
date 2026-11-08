@@ -19,6 +19,34 @@ public class HouseService : IHouseService
         _files = files;
     }
 
+    public async Task<LandlordProfileDto> GetProfileAsync(string landlordId)
+    {
+        var p = await _db.LandlordProfiles.AsNoTracking().Include(x => x.User).FirstOrDefaultAsync(x => x.UserId == landlordId)
+            ?? throw ApiException.NotFound("Chưa có hồ sơ chủ trọ.");
+        return new LandlordProfileDto
+        {
+            UserId = landlordId, Email = p.User.Email ?? "", FullName = p.FullName, CitizenId = p.CitizenId, Phone = p.Phone,
+            ApprovalStatus = p.ApprovalStatus.ToString(), ReviewNote = p.ReviewNote
+        };
+    }
+
+    public async Task UpdateProfileAsync(string landlordId, LandlordProfileDto dto)
+    {
+        var p = await _db.LandlordProfiles.Include(x => x.User).FirstOrDefaultAsync(x => x.UserId == landlordId) 
+            ?? throw ApiException.NotFound("Chưa có hồ sơ chủ trọ.");
+        p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId; p.Phone = dto.Phone;
+        p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
+
+        if (p.ApprovalStatus == ApprovalStatus.Rejected)
+        {
+            p.ApprovalStatus = ApprovalStatus.Pending;
+            p.ReviewNote = null;
+            p.ReviewedAt = null;
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
     public async Task<BoardingHouse> GetOwnedHouseAsync(string landlordId, int houseId, bool track = false)
     {
         var q = track ? _db.BoardingHouses : _db.BoardingHouses.AsNoTracking();
@@ -124,6 +152,8 @@ public class HouseService : IHouseService
     public async Task<CertificateDto> UploadCertificateAsync(string landlordId, int houseId, CreateCertificateDto dto)
     {
         var house = await GetOwnedHouseAsync(landlordId, houseId, track: true);
+        if (house.Status == HouseStatus.Active)
+            throw new BusinessRuleException("Nhà trọ đã được phê duyệt hoạt động, không thể nộp thêm giấy PCCC mới.");
         if (await _db.FireSafetyCertificates.AnyAsync(c => c.BoardingHouseId == houseId && c.Status == CertificateStatus.Pending))
             throw ApiException.Conflict("Đang có giấy PCCC chờ duyệt, vui lòng đợi kết quả.");
 
@@ -161,7 +191,13 @@ public class HouseService : IHouseService
     public async Task<ServiceDto> CreateServiceAsync(string landlordId, ServiceDto dto)
     {
         await GetOwnedHouseAsync(landlordId, dto.BoardingHouseId);
-        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = dto.Name.Trim(), Price = dto.Price, Unit = Enum.Parse<ServiceUnit>(dto.Unit), IsActive = dto.IsActive };
+        if (dto.Price < 0) throw ApiException.BadRequest("Giá dịch vụ phải lớn hơn hoặc bằng 0.");
+        if (!Enum.TryParse<ServiceUnit>(dto.Unit, true, out var sUnit)) throw ApiException.BadRequest("Đơn vị dịch vụ không hợp lệ (PerMonth, PerPerson).");
+        var trimmedName = dto.Name.Trim();
+        if (await _db.Services.AnyAsync(s => s.BoardingHouseId == dto.BoardingHouseId && s.Name.ToLower() == trimmedName.ToLower()))
+            throw ApiException.Conflict($"Dịch vụ '{trimmedName}' đã tồn tại trong nhà trọ này.");
+
+        var s = new Service { BoardingHouseId = dto.BoardingHouseId, Name = trimmedName, Price = dto.Price, Unit = sUnit, IsActive = dto.IsActive };
         _db.Services.Add(s);
         await _db.SaveChangesAsync();
         dto.Id = s.Id;
@@ -172,7 +208,13 @@ public class HouseService : IHouseService
     {
         var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
         if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
-        s.Name = dto.Name.Trim(); s.Price = dto.Price; s.Unit = Enum.Parse<ServiceUnit>(dto.Unit); s.IsActive = dto.IsActive;
+        if (dto.Price < 0) throw ApiException.BadRequest("Giá dịch vụ phải lớn hơn hoặc bằng 0.");
+        if (!Enum.TryParse<ServiceUnit>(dto.Unit, true, out var sUnitUpdate)) throw ApiException.BadRequest("Đơn vị dịch vụ không hợp lệ (PerMonth, PerPerson).");
+        var trimmedName = dto.Name.Trim();
+        if (await _db.Services.AnyAsync(x => x.BoardingHouseId == s.BoardingHouseId && x.Id != id && x.Name.ToLower() == trimmedName.ToLower()))
+            throw ApiException.Conflict($"Dịch vụ '{trimmedName}' đã tồn tại trong nhà trọ này.");
+
+        s.Name = trimmedName; s.Price = dto.Price; s.Unit = sUnitUpdate; s.IsActive = dto.IsActive;
         await _db.SaveChangesAsync();
     }
 
@@ -181,18 +223,43 @@ public class HouseService : IHouseService
         var s = await _db.Services.Include(x => x.BoardingHouse).FirstOrDefaultAsync(x => x.Id == id) ?? throw ApiException.NotFound("Không tìm thấy dịch vụ.");
         if (s.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (await _db.ContractServices.AnyAsync(cs => cs.ServiceId == id && cs.Contract.Status == ContractStatus.Active))
-            throw ApiException.Conflict("Dịch vụ đang được hợp đồng hiệu lực sử dụng. Hãy tắt (IsActive = false) thay vì xóa.");
+            throw ApiException.Conflict("Dịch vụ đang được hợp đồng hiệu lực sử dụng. Hãy chuyển sang ngừng cung cấp (IsActive = false) thay vì xóa.");
+
+        if (await _db.ContractServices.AnyAsync(cs => cs.ServiceId == id))
+        {
+            s.IsActive = false;
+            await _db.SaveChangesAsync();
+            return;
+        }
+
         _db.Services.Remove(s);
         await _db.SaveChangesAsync();
     }
 
     private static void Apply(BoardingHouse h, CreateHouseDto d)
     {
+        // Quy định 2: Kiểm tra tầng nghiệp vụ Service
+        if (d.ElectricityPrice <= 0 || d.ElectricityPrice > 4000)
+            throw ApiException.BadRequest("Giá điện phải từ 1 đến 4.000đ/kWh.");
+
+        if (d.WaterPrice <= 0)
+            throw ApiException.BadRequest("Giá nước phải lớn hơn 0.");
+
+        if (d.TotalFloors < 1 || d.TotalFloors > 50)
+            throw ApiException.BadRequest("Số tầng phải từ 1 đến 50.");
+
+        if (d.Latitude.HasValue && (d.Latitude < -90 || d.Latitude > 90))
+            throw new BusinessRuleException("Vĩ độ (Latitude) phải nằm trong khoảng từ -90 đến 90 độ.");
+        if (d.Longitude.HasValue && (d.Longitude < -180 || d.Longitude > 180))
+            throw new BusinessRuleException("Kinh độ (Longitude) phải nằm trong khoảng từ -180 đến 180 độ.");
+
         h.Name = d.Name.Trim(); h.Address = d.Address.Trim(); h.AreaId = d.AreaId;
         h.Latitude = d.Latitude; h.Longitude = d.Longitude; h.TotalFloors = d.TotalFloors;
         h.ElectricityPrice = d.ElectricityPrice; h.WaterPrice = d.WaterPrice;
-        h.WaterBillingType = Enum.Parse<WaterBillingType>(d.WaterBillingType);
-        h.AllowedTenantType = Enum.Parse<AllowedTenantType>(d.AllowedTenantType);
+        if (!Enum.TryParse<WaterBillingType>(d.WaterBillingType, true, out var wType)) throw ApiException.BadRequest("Hình thức tính tiền nước không hợp lệ (PerM3, PerPerson).");
+        if (!Enum.TryParse<AllowedTenantType>(d.AllowedTenantType, true, out var tType)) throw ApiException.BadRequest("Đối tượng cho thuê không hợp lệ (All, StudentOnly).");
+        h.WaterBillingType = wType;
+        h.AllowedTenantType = tType;
         h.Description = d.Description; h.BankCode = d.BankCode; h.BankAccount = d.BankAccount; h.AccountName = d.AccountName;
     }
 }

@@ -6,7 +6,7 @@
     <form method="post" enctype="multipart/form-data">
         <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
         <input type="hidden" asp-for="InvoiceId" />
-        <div class="mb-3"><label asp-for="Amount" class="form-label"></label><input asp-for="Amount" type="number" step="1000" class="form-control" /><span asp-validation-for="Amount" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="Amount" class="form-label"></label><input asp-for="Amount" type="number" step="any" min="1" class="form-control" /><span asp-validation-for="Amount" class="text-danger small"></span></div>
         <div class="mb-3"><label asp-for="ProofImage" class="form-label"></label><input asp-for="ProofImage" type="file" accept="image/*" class="form-control" /></div>
         <div class="mb-3"><label asp-for="Note" class="form-label"></label><input asp-for="Note" class="form-control" /></div>
         <button class="btn btn-primary">Gửi xác nhận</button>

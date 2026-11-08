@@ -11,3 +11,8 @@ public class ApiException : Exception
     public static ApiException NotFound(string m = "Không tìm thấy dữ liệu.") => new(StatusCodes.Status404NotFound, m);
     public static ApiException Conflict(string m) => new(StatusCodes.Status409Conflict, m);
 }
+
+public class BusinessRuleException : ApiException
+{
+    public BusinessRuleException(string message) : base(StatusCodes.Status400BadRequest, message) { }
+}

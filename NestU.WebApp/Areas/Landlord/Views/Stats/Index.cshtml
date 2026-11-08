@@ -1,0 +1,311 @@
+@model NestU.WebApp.Models.Stats.LandlordStatsDto
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Doanh thu & Thống kê";
+    var months = Model.MonthlyRevenues;
+    var labels = months.Select(m => $"Tháng {m.Month}").ToList();
+    var rentData = months.Select(m => m.RentRevenue).ToList();
+    var electricData = months.Select(m => m.ElectricRevenue).ToList();
+    var waterData = months.Select(m => m.WaterRevenue).ToList();
+    var serviceData = months.Select(m => m.ServiceRevenue).ToList();
+    var totalData = months.Select(m => m.TotalRevenue).ToList();
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h4 mb-1">Doanh thu &amp; Thống kê</h1>
+        <p class="text-secondary small mb-0">Theo dõi dòng tiền thực thu, tỷ lệ lấp đầy phòng và dự phóng doanh thu</p>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-center">
+        <select name="houseId" class="form-select form-select-sm" asp-items="ViewBag.Houses" onchange="this.form.submit()">
+            <option value="">-- Tất cả nhà trọ --</option>
+        </select>
+        <select name="year" class="form-select form-select-sm" asp-items="ViewBag.Years" onchange="this.form.submit()"></select>
+        <noscript><button class="btn btn-sm btn-secondary">Lọc</button></noscript>
+    </form>
+</div>
+
+<!-- Banner thông tin mô hình kết nối phi tập trung -->
+<div class="alert alert-info border-0 shadow-sm d-flex align-items-start gap-3 mb-4">
+    <i class="bi bi-shield-check fs-3 text-info flex-shrink-0"></i>
+    <div>
+        <div class="fw-bold">Mô hình kết nối trực tiếp &amp; Minh bạch dòng tiền</div>
+        <div class="small">
+            100% doanh thu được khách thuê thanh toán trực tiếp vào tài khoản ngân hàng của bạn qua mã <strong>VietQR</strong>. 
+            Nền tảng <strong>NestU không giữ tiền trung gian</strong> và <strong>không thu phí chiết khấu/hoa hồng</strong> trên từng giao dịch.
+        </div>
+    </div>
+</div>
+
+<!-- 4 thẻ chỉ số KPI tổng quan -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card p-3 shadow-sm h-100 border-start border-4 border-primary">
+            <div class="small text-secondary text-uppercase fw-semibold">Thực thu năm @Model.Year</div>
+            <div class="h3 my-1 fw-bold text-primary">@Model.TotalRevenueThisYear.ToString("N0") <span class="fs-6 fw-normal text-muted">đ</span></div>
+            <div class="small text-muted">Tổng các hóa đơn đã thanh toán</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card p-3 shadow-sm h-100 border-start border-4 border-success">
+            <div class="small text-secondary text-uppercase fw-semibold">Doanh thu tháng này</div>
+            <div class="h3 my-1 fw-bold text-success">@Model.TotalRevenueThisMonth.ToString("N0") <span class="fs-6 fw-normal text-muted">đ</span></div>
+            <div class="small">
+                @if (Model.MonthOverMonthGrowthPercent.HasValue)
+                {
+                    if (Model.MonthOverMonthGrowthPercent.Value >= 0)
+                    {
+                        <span class="text-success fw-semibold"><i class="bi bi-arrow-up-right"></i> +@Model.MonthOverMonthGrowthPercent.Value%</span>
+                    }
+                    else
+                    {
+                        <span class="text-danger fw-semibold"><i class="bi bi-arrow-down-right"></i> @Model.MonthOverMonthGrowthPercent.Value%</span>
+                    }
+                    <span class="text-muted"> so với tháng trước</span>
+                }
+                else
+                {
+                    <span class="text-muted">Tháng liền trước: @Model.TotalRevenueLastMonth.ToString("N0") đ</span>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card p-3 shadow-sm h-100 border-start border-4 border-warning">
+            <div class="small text-secondary text-uppercase fw-semibold">Tỷ lệ lấp đầy phòng</div>
+            <div class="h3 my-1 fw-bold text-warning">@Model.OverallOccupancy.OccupancyRate%</div>
+            <div class="small text-muted">Đang thuê: <strong>@Model.OverallOccupancy.OccupiedRooms</strong> / @Model.OverallOccupancy.TotalRooms phòng</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card p-3 shadow-sm h-100 border-start border-4 border-info">
+            <div class="small text-secondary text-uppercase fw-semibold">Dự phóng tháng @Model.ProjectedRevenue.TargetMonth/@Model.ProjectedRevenue.TargetYear</div>
+            <div class="h3 my-1 fw-bold text-info">@Model.ProjectedRevenue.TotalProjected.ToString("N0") <span class="fs-6 fw-normal text-muted">đ</span></div>
+            <div class="small text-muted">Từ <strong>@Model.ProjectedRevenue.ActiveContractsCount</strong> hợp đồng đang hiệu lực</div>
+        </div>
+    </div>
+</div>
+
+<!-- Khối Biểu đồ Chart.js và Dự phóng doanh thu -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-bar-chart-line text-primary me-2"></i>Biểu đồ doanh thu thực tế 12 tháng năm @Model.Year</span>
+                <span class="badge bg-light text-dark border">Thực thu (Đã thanh toán)</span>
+            </div>
+            <div class="card-body">
+                <div style="height: 320px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột Dự phóng doanh thu tháng tới -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <span class="fw-bold"><i class="bi bi-graph-up-arrow text-success me-2"></i>Dự phóng tháng @Model.ProjectedRevenue.TargetMonth/@Model.ProjectedRevenue.TargetYear</span>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    Tính toán dựa trên các hợp đồng đang có hiệu lực bao trùm tháng tới và định mức tiêu thụ trung bình:
+                </p>
+                <div class="list-group list-group-flush mb-3">
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="bi bi-door-open text-primary me-2"></i>Tiền phòng cố định:</span>
+                        <strong>@Model.ProjectedRevenue.ProjectedRent.ToString("N0") đ</strong>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="bi bi-wifi text-warning me-2"></i>Dịch vụ đăng ký:</span>
+                        <strong>@Model.ProjectedRevenue.ProjectedServices.ToString("N0") đ</strong>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="bi bi-lightning-charge text-danger me-2"></i>Điện &amp; Nước (ước tính):</span>
+                        <strong>@Model.ProjectedRevenue.EstimatedUtility.ToString("N0") đ</strong>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-light p-2 rounded mt-2">
+                        <span class="fw-bold text-dark">Tổng dự kiến thu:</span>
+                        <span class="fw-bold text-primary fs-5">@Model.ProjectedRevenue.TotalProjected.ToString("N0") đ</span>
+                    </div>
+                </div>
+
+                @if (Model.UnpaidInvoicesCount > 0)
+                {
+                    <div class="alert alert-warning small mb-0 mt-3">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        Hiện đang có <strong>@Model.UnpaidInvoicesCount</strong> hóa đơn chưa thanh toán (tổng nợ: <strong>@Model.UnpaidInvoicesTotal.ToString("N0") đ</strong>).
+                        <a asp-controller="Invoices" asp-action="Index" class="fw-semibold">Xem danh sách</a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Khối Thống kê tỷ lệ lấp đầy phòng -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <span class="fw-bold"><i class="bi bi-pie-chart text-warning me-2"></i>Thống kê tỷ lệ lấp đầy phòng (Occupancy Rate)</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            @if (Model.HousesOccupancy.Count == 0)
+            {
+                <div class="col-12 text-muted text-center py-4">Chưa có dữ liệu phòng để thống kê tỷ lệ lấp đầy.</div>
+            }
+            @foreach (var house in Model.HousesOccupancy)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">@house.HouseName</h6>
+                                <span class="small text-muted">@house.TotalFloors tầng · @house.TotalRooms phòng</span>
+                            </div>
+                            <span class="badge @(house.OccupancyRate >= 80 ? "bg-success" : (house.OccupancyRate >= 50 ? "bg-warning" : "bg-secondary")) fs-6">
+                                @house.OccupancyRate%
+                            </span>
+                        </div>
+
+                        <!-- Thanh tỷ lệ lấp đầy -->
+                        <div class="progress mb-3" style="height: 10px;">
+                            <div class="progress-bar bg-success" style="width: @house.OccupancyRate%" title="Đang thuê (@house.OccupiedRooms phòng)"></div>
+                            <div class="progress-bar bg-light text-dark" style="width: @(house.TotalRooms == 0 ? 0 : Math.Round((double)house.AvailableRooms / house.TotalRooms * 100, 1))%" title="Còn trống (@house.AvailableRooms phòng)"></div>
+                        </div>
+
+                        <div class="d-flex justify-content-between small text-muted mb-3">
+                            <span><span class="badge bg-success rounded-circle p-1"> </span> Đang thuê: <strong>@house.OccupiedRooms</strong></span>
+                            <span><span class="badge bg-secondary rounded-circle p-1"> </span> Còn trống: <strong>@house.AvailableRooms</strong></span>
+                            @if (house.MaintenanceRooms > 0)
+                            {
+                                <span><span class="badge bg-danger rounded-circle p-1"> </span> Bảo trì: <strong>@house.MaintenanceRooms</strong></span>
+                            }
+                        </div>
+
+                        <!-- Chi tiết từng tầng -->
+                        @if (house.Floors.Count > 0)
+                        {
+                            <div class="border-top pt-2">
+                                <span class="small fw-semibold text-secondary d-block mb-1">Chi tiết theo tầng:</span>
+                                @foreach (var floor in house.Floors)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center small py-1">
+                                        <span>Tầng @floor.Floor</span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress" style="width: 70px; height: 6px;">
+                                                <div class="progress-bar bg-primary" style="width: @floor.OccupancyRate%"></div>
+                                            </div>
+                                            <span class="text-end" style="min-width: 50px;"><strong>@floor.OccupiedRooms/@floor.TotalRooms</strong> (@floor.OccupancyRate%)</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script>
+        const ctx = document.getElementById('revenueChart');
+        if (ctx) {
+            const labels = @Html.Raw(JsonSerializer.Serialize(labels));
+            const rentData = @Html.Raw(JsonSerializer.Serialize(rentData));
+            const electricData = @Html.Raw(JsonSerializer.Serialize(electricData));
+            const waterData = @Html.Raw(JsonSerializer.Serialize(waterData));
+            const serviceData = @Html.Raw(JsonSerializer.Serialize(serviceData));
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Tiền phòng',
+                            data: rentData,
+                            backgroundColor: '#0d6efd',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Tiền điện',
+                            data: electricData,
+                            backgroundColor: '#ffc107',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Tiền nước',
+                            data: waterData,
+                            backgroundColor: '#0dcaf0',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Dịch vụ',
+                            data: serviceData,
+                            backgroundColor: '#fd7e14',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 12, font: { family: 'Inter', size: 12 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('vi-VN').format(context.parsed.y) + ' đ';
+                                    }
+                                    return label;
+                                },
+                                footer: function(tooltipItems) {
+                                    let sum = 0;
+                                    tooltipItems.forEach(function(tooltipItem) {
+                                        sum += tooltipItem.parsed.y;
+                                    });
+                                    return 'Tổng: ' + new Intl.NumberFormat('vi-VN').format(sum) + ' đ';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) {
+                                        return (value / 1000000).toFixed(1) + ' tr';
+                                    }
+                                    if (value >= 1000) {
+                                        return (value / 1000).toFixed(0) + ' k';
+                                    }
+                                    return value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+}
+

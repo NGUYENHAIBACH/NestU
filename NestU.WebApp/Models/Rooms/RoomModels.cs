@@ -114,5 +114,7 @@ public class BulkCreateRoomsDto
 public class SetRoomStatusDto
 {
     public int Id { get; set; }
-    [Required] public string Status { get; set; } = "Available";
+    [Required]
+    [RegularExpression("^(Available|Maintenance)$", ErrorMessage = "Chỉ được đặt Available hoặc Maintenance")]
+    public string Status { get; set; } = "Available";
 }

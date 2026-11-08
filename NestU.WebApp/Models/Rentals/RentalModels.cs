@@ -16,12 +16,18 @@ public class TenantProfileDto
     public string? UniversityName { get; set; }
 }
 
-public class CreateAppointmentDto
+public class CreateAppointmentDto : IValidatableObject
 {
     public int RoomId { get; set; }
     public string? RoomLabel { get; set; }
     [Required(ErrorMessage = "Vui lòng chọn thời gian")] [Display(Name = "Thời gian xem phòng")] public DateTime ScheduledAt { get; set; } = DateTime.Now.AddDays(1).Date.AddHours(9);
     [StringLength(500)] [Display(Name = "Ghi chú")] public string? Note { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (ScheduledAt < DateTime.Now.AddHours(1))
+            yield return new ValidationResult("Thời gian xem phải sau thời điểm hiện tại ít nhất 1 giờ.", new[] { nameof(ScheduledAt) });
+    }
 }
 
 public class AppointmentDto
@@ -41,7 +47,7 @@ public class AppointmentDto
     public DateTime CreatedAt { get; set; }
 }
 
-public class CreateRentalRequestDto
+public class CreateRentalRequestDto : IValidatableObject
 {
     public int RoomId { get; set; }
     public string? RoomLabel { get; set; }
@@ -52,6 +58,12 @@ public class CreateRentalRequestDto
     [Required(ErrorMessage = "Vui lòng chọn ngày dọn vào")] [DataType(DataType.Date)] [Display(Name = "Ngày dọn vào")] public DateTime MoveInDate { get; set; } = DateTime.Today.AddDays(3);
     [Range(1, 36, ErrorMessage = "Thời hạn từ 1 đến 36 tháng")] [Display(Name = "Thời hạn thuê (tháng)")] public int DurationMonths { get; set; } = 6;
     [StringLength(500)] [Display(Name = "Ghi chú cho chủ trọ")] public string? Note { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (MoveInDate.Date < DateTime.Today)
+            yield return new ValidationResult("Ngày dọn vào không được ở quá khứ.", new[] { nameof(MoveInDate) });
+    }
 }
 
 public class RentalRequestDto
@@ -92,6 +104,8 @@ public class ApproveRentalDto
     [Range(1, 36)] [Display(Name = "Thời hạn (tháng)")] public int? DurationMonths { get; set; }
     [Range(0, 1_000_000_000)] [Display(Name = "Tiền cọc đã nhận")] public decimal? DepositAmount { get; set; }
     [Display(Name = "Đã nhận tiền cọc")] public bool DepositPaid { get; set; } = true;
+    [Range(0, 1_000_000, ErrorMessage = "Chỉ số điện không hợp lệ")] [Display(Name = "Chỉ số điện nhận phòng")] public int InitialElectricIndex { get; set; } = 0;
+    [Range(0, 1_000_000, ErrorMessage = "Chỉ số nước không hợp lệ")] [Display(Name = "Chỉ số nước nhận phòng")] public int InitialWaterIndex { get; set; } = 0;
     [Display(Name = "Dịch vụ đăng ký")] public List<int> ServiceIds { get; set; } = new();
     public List<ContractMemberDto> Members { get; set; } = new();
     public List<ServiceDto> AvailableServices { get; set; } = new();
@@ -116,6 +130,8 @@ public class ContractDto
     public decimal MonthlyRent { get; set; }
     public decimal DepositAmount { get; set; }
     public DateTime? DepositPaidAt { get; set; }
+    public int InitialElectricIndex { get; set; }
+    public int InitialWaterIndex { get; set; }
     public string Status { get; set; } = string.Empty;
     public string DisplayStatus { get; set; } = string.Empty;
     public DateTime? TerminatedAt { get; set; }

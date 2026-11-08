@@ -30,6 +30,28 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TokenDto>> Login(LoginDto dto) => Ok(await _auth.LoginAsync(dto));
 
+    /// <summary>Gửi mã OTP qua email để đặt lại mật khẩu (mã có hiệu lực trong 5 phút).</summary>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+    {
+        await _auth.ForgotPasswordAsync(dto);
+        return Ok(new { message = "Mã xác thực OTP đã được gửi đến email của bạn." });
+    }
+
+    /// <summary>Xác thực mã OTP và đặt lại mật khẩu mới.</summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+    {
+        await _auth.ResetPasswordAsync(dto);
+        return Ok(new { message = "Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới." });
+    }
+
     /// <summary>Thông tin người dùng hiện tại.</summary>
     [HttpGet("me")]
     [Authorize]

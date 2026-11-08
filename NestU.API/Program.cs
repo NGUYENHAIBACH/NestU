@@ -67,6 +67,7 @@ builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHand
 // ---------- Services ----------
 builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileStorage, FileStorage>();
 builder.Services.AddScoped<IHouseService, HouseService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
@@ -74,6 +75,8 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IRentalService, RentalService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<ISupportService, SupportService>();
+builder.Services.AddScoped<IPublicService, PublicService>();
+builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 

@@ -16,11 +16,12 @@ public class FileStorage : IFileStorage
         allowedExtensions ??= new[] { ".jpg", ".jpeg", ".png", ".webp", ".pdf" };
         if (!allowedExtensions.Contains(ext)) throw ApiException.BadRequest("Định dạng file không được hỗ trợ.");
 
-        var root = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", folder);
+        var safeFolder = Path.GetFileName(folder);
+        var root = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", safeFolder);
         Directory.CreateDirectory(root);
         var name = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}{ext}";
         await using var fs = File.Create(Path.Combine(root, name));
         await file.CopyToAsync(fs);
-        return $"/uploads/{folder}/{name}";
+        return $"/uploads/{safeFolder}/{name}";
     }
 }

@@ -45,8 +45,19 @@ public class SupportService : ISupportService
     {
         var c = await _rentals.GetOwnedContractAsync(tenantId, Roles.Tenant, dto.ContractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
-        if (dto.RoomAssetId is not null && !await _db.RoomAssets.AnyAsync(a => a.Id == dto.RoomAssetId && a.RoomId == c.RoomId))
-            throw ApiException.BadRequest("Tài sản không thuộc phòng của bạn.");
+        if (c.EndDate.Date < DateTime.Today) throw ApiException.Conflict("Hợp đồng đã hết hạn, không thể gửi yêu cầu sửa chữa.");
+        if (dto.RoomAssetId is not null)
+        {
+            if (!await _db.RoomAssets.AnyAsync(a => a.Id == dto.RoomAssetId && a.RoomId == c.RoomId))
+                throw ApiException.BadRequest("Tài sản không thuộc phòng của bạn.");
+            if (await _db.MaintenanceRequests.AnyAsync(m => m.ContractId == dto.ContractId && m.RoomAssetId == dto.RoomAssetId && m.Status != MaintenanceStatus.Resolved))
+                throw ApiException.Conflict("Tài sản này đang có yêu cầu sửa chữa chờ xử lý.");
+        }
+        else if (await _db.MaintenanceRequests.AnyAsync(m => m.ContractId == dto.ContractId && m.RoomAssetId == null && m.Title == dto.Title.Trim() && m.Status != MaintenanceStatus.Resolved))
+        {
+            throw ApiException.Conflict("Đang có yêu cầu sửa chữa cùng tiêu đề chờ xử lý.");
+        }
+
         string? url = null;
         if (dto.Image is not null) url = await _files.SaveAsync(dto.Image, "maintenance", new[] { ".jpg", ".jpeg", ".png", ".webp" });
 
@@ -63,12 +74,18 @@ public class SupportService : ISupportService
         if (m.Contract.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (m.Status == MaintenanceStatus.Resolved) throw ApiException.Conflict("Yêu cầu đã được xử lý xong.");
 
-        m.Status = Enum.Parse<MaintenanceStatus>(dto.Status);
+        if (!Enum.TryParse<MaintenanceStatus>(dto.Status, true, out var st) || st == MaintenanceStatus.Open)
+            throw ApiException.BadRequest("Trạng thái sửa chữa không hợp lệ (InProgress, Resolved).");
+        m.Status = st;
         m.ResolveNote = dto.Note;
         if (m.Status == MaintenanceStatus.Resolved)
         {
             m.ResolvedAt = DateTime.UtcNow;
-            if (m.RoomAsset is not null && dto.AssetCondition is not null) m.RoomAsset.Condition = Enum.Parse<AssetCondition>(dto.AssetCondition);
+            if (m.RoomAsset is not null && dto.AssetCondition is not null)
+            {
+                if (!Enum.TryParse<AssetCondition>(dto.AssetCondition, true, out var cond)) throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ.");
+                m.RoomAsset.Condition = cond;
+            }
         }
         await _db.SaveChangesAsync();
     }
@@ -76,6 +93,7 @@ public class SupportService : ISupportService
     // ----- Đánh giá -----
     public async Task<ReviewDto> CreateReviewAsync(string tenantId, CreateReviewDto dto)
     {
+        if (dto.Rating < 1 || dto.Rating > 5) throw ApiException.BadRequest("Điểm đánh giá phải từ 1 đến 5 sao.");
         var c = await _db.Contracts.AsNoTracking().Include(x => x.Room).FirstOrDefaultAsync(x => x.Id == dto.ContractId) ?? throw ApiException.NotFound("Không tìm thấy hợp đồng.");
         if (c.TenantId != tenantId) throw ApiException.Forbidden("Chỉ người từng thuê phòng mới được đánh giá.");
         if (c.StartDate.Date > DateTime.Today) throw ApiException.BadRequest("Hợp đồng chưa bắt đầu, chưa thể đánh giá.");
@@ -90,6 +108,11 @@ public class SupportService : ISupportService
 
     public async Task<List<ReviewDto>> GetRoomReviewsAsync(int roomId)
     {
+        var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == roomId)
+            ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (room.BoardingHouse.Status != HouseStatus.Active)
+            throw ApiException.NotFound("Phòng này chưa được công khai.");
+
         var rows = await _db.Reviews.AsNoTracking().Include(r => r.Contract).ThenInclude(c => c.Room).Include(r => r.Contract).ThenInclude(c => c.Tenant)
             .Where(r => r.Contract.RoomId == roomId).OrderByDescending(r => r.CreatedAt).ToListAsync();
         return rows.Select(r => new ReviewDto
@@ -119,7 +142,8 @@ public class SupportService : ISupportService
     // ----- Khiếu nại -----
     public async Task<ReportDto> CreateReportAsync(string reporterId, CreateReportDto dto)
     {
-        var type = Enum.Parse<ReportTargetType>(dto.TargetType);
+        if (!Enum.TryParse<ReportTargetType>(dto.TargetType, true, out var type))
+            throw ApiException.BadRequest("Loại đối tượng khiếu nại không hợp lệ (Room, House, Landlord).");
         var exists = type switch
         {
             ReportTargetType.Room => await _db.Rooms.AnyAsync(r => r.Id == dto.TargetId),
@@ -127,6 +151,17 @@ public class SupportService : ISupportService
             _ => await _db.LandlordProfiles.AnyAsync(p => p.Id == dto.TargetId)
         };
         if (!exists) throw ApiException.NotFound("Đối tượng khiếu nại không tồn tại.");
+
+        if (type == ReportTargetType.Room && await _db.Rooms.AnyAsync(r => r.Id == dto.TargetId && r.BoardingHouse.LandlordId == reporterId))
+            throw ApiException.BadRequest("Bạn không thể khiếu nại phòng do chính mình quản lý.");
+        if (type == ReportTargetType.House && await _db.BoardingHouses.AnyAsync(h => h.Id == dto.TargetId && h.LandlordId == reporterId))
+            throw ApiException.BadRequest("Bạn không thể khiếu nại nhà trọ do chính mình quản lý.");
+        if (type == ReportTargetType.Landlord && await _db.LandlordProfiles.AnyAsync(p => p.Id == dto.TargetId && p.UserId == reporterId))
+            throw ApiException.BadRequest("Bạn không thể tự khiếu nại chính mình.");
+
+        if (string.IsNullOrWhiteSpace(dto.Reason) || dto.Reason.Trim().Length < 10)
+            throw ApiException.BadRequest("Nội dung khiếu nại phải từ 10 ký tự trở lên.");
+
         if (await _db.Reports.AnyAsync(r => r.ReporterId == reporterId && r.TargetType == type && r.TargetId == dto.TargetId && r.Status == ReportStatus.Open))
             throw ApiException.Conflict("Bạn đã gửi khiếu nại cho đối tượng này và đang chờ xử lý.");
 
@@ -139,10 +174,24 @@ public class SupportService : ISupportService
     public async Task<List<ReportDto>> GetMyReportsAsync(string reporterId)
     {
         var rows = await _db.Reports.AsNoTracking().Include(r => r.Reporter).Where(r => r.ReporterId == reporterId).OrderByDescending(r => r.CreatedAt).ToListAsync();
+
+        var roomIds = rows.Where(r => r.TargetType == ReportTargetType.Room).Select(r => r.TargetId).ToList();
+        var houseIds = rows.Where(r => r.TargetType == ReportTargetType.House).Select(r => r.TargetId).ToList();
+        var landlordIds = rows.Where(r => r.TargetType == ReportTargetType.Landlord).Select(r => r.TargetId).ToList();
+        var rooms = await _db.Rooms.AsNoTracking().Where(x => roomIds.Contains(x.Id)).Select(x => new { x.Id, Name = x.BoardingHouse.Name + " - P." + x.RoomNumber }).ToDictionaryAsync(x => x.Id, x => x.Name);
+        var houses = await _db.BoardingHouses.AsNoTracking().Where(x => houseIds.Contains(x.Id)).Select(x => new { x.Id, x.Name }).ToDictionaryAsync(x => x.Id, x => x.Name);
+        var landlords = await _db.LandlordProfiles.AsNoTracking().Where(x => landlordIds.Contains(x.Id)).Select(x => new { x.Id, x.FullName }).ToDictionaryAsync(x => x.Id, x => x.FullName);
+
         return rows.Select(r => new ReportDto
         {
             Id = r.Id, ReporterId = r.ReporterId, ReporterName = r.Reporter.FullName, TargetType = r.TargetType.ToString(), TargetId = r.TargetId,
-            TargetName = r.TargetType.ToString() + " #" + r.TargetId, Reason = r.Reason, Status = r.Status.ToString(), ResolveNote = r.ResolveNote,
+            TargetName = r.TargetType switch
+            {
+                ReportTargetType.Room => rooms.GetValueOrDefault(r.TargetId, "(phòng đã xóa)"),
+                ReportTargetType.House => houses.GetValueOrDefault(r.TargetId, "(nhà trọ đã xóa)"),
+                _ => landlords.GetValueOrDefault(r.TargetId, "(chủ trọ)")
+            },
+            Reason = r.Reason, Status = r.Status.ToString(), ResolveNote = r.ResolveNote,
             CreatedAt = r.CreatedAt, ResolvedAt = r.ResolvedAt
         }).ToList();
     }

@@ -62,3 +62,8 @@ public class RegisterModel : IValidatableObject
         }
     }
 }
+
+/// <summary>Bí danh tương ứng với RegisterDto bên API theo Quy tắc 2 CLAUDE.md.</summary>
+public class RegisterDto : RegisterModel
+{
+}

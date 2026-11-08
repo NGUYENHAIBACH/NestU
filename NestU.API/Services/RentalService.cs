@@ -63,9 +63,19 @@ public class RentalService : IRentalService
     public async Task<AppointmentDto> CreateAppointmentAsync(string tenantId, CreateAppointmentDto dto)
     {
         var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == dto.RoomId) ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (room.BoardingHouse.LandlordId == tenantId)
+            throw ApiException.BadRequest("Bạn không thể đặt lịch xem phòng do chính mình quản lý.");
+
+        var profile = await _db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == tenantId)
+            ?? throw ApiException.BadRequest("Vui lòng hoàn thiện hồ sơ người thuê trước khi đặt lịch xem.");
+
         if (room.BoardingHouse.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC, chưa nhận lịch xem.");
         if (room.Status != RoomStatus.Available) throw ApiException.BadRequest("Phòng hiện không còn trống.");
+        if (room.BoardingHouse.AllowedTenantType == AllowedTenantType.StudentOnly && !profile.IsStudent)
+            throw ApiException.BadRequest("Nhà trọ này chỉ nhận sinh viên, bạn không thể đặt lịch xem.");
+
         if (dto.ScheduledAt < DateTime.Now.AddHours(1)) throw ApiException.BadRequest("Thời gian xem phải sau thời điểm hiện tại ít nhất 1 giờ.");
+        if (dto.ScheduledAt > DateTime.Now.AddDays(30)) throw ApiException.BadRequest("Thời gian xem phòng chỉ được đặt trước tối đa 30 ngày.");
         if (await _db.ViewingAppointments.AnyAsync(a => a.TenantId == tenantId && a.RoomId == dto.RoomId && a.Status == AppointmentStatus.Pending))
             throw ApiException.Conflict("Bạn đã có lịch xem đang chờ cho phòng này.");
 
@@ -97,6 +107,15 @@ public class RentalService : IRentalService
         if (a.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (a.Status != AppointmentStatus.Pending) throw ApiException.Conflict("Lịch này đã được xử lý.");
         if (!confirm && string.IsNullOrWhiteSpace(reason)) throw ApiException.BadRequest("Vui lòng nhập lý do từ chối.");
+
+        if (confirm)
+        {
+            if (a.Room.Status != RoomStatus.Available)
+                throw ApiException.Conflict("Phòng hiện không còn trống để xác nhận lịch xem.");
+            if (a.ScheduledAt < DateTime.Now)
+                throw ApiException.BadRequest("Thời gian hẹn xem phòng đã qua, không thể xác nhận lịch xem.");
+        }
+
         a.Status = confirm ? AppointmentStatus.Confirmed : AppointmentStatus.Rejected;
         a.RejectReason = confirm ? null : reason;
         await _db.SaveChangesAsync();
@@ -143,11 +162,15 @@ public class RentalService : IRentalService
     public async Task<RentalRequestDto> CreateRequestAsync(string tenantId, CreateRentalRequestDto dto)
     {
         var room = await _db.Rooms.AsNoTracking().Include(r => r.BoardingHouse).FirstOrDefaultAsync(r => r.Id == dto.RoomId) ?? throw ApiException.NotFound("Không tìm thấy phòng.");
+        if (room.BoardingHouse.LandlordId == tenantId)
+            throw ApiException.BadRequest("Bạn không thể gửi yêu cầu thuê phòng do chính mình quản lý.");
         var profile = await _db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == tenantId) ?? throw ApiException.BadRequest("Vui lòng hoàn thiện hồ sơ người thuê trước.");
 
         // Quy định 1: chỉ nhà trọ Active (đã duyệt PCCC)
         if (room.BoardingHouse.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC, chưa nhận yêu cầu thuê.");
         if (room.Status != RoomStatus.Available) throw ApiException.BadRequest("Phòng hiện không còn trống.");
+        if (dto.NumberOfOccupants < 1) throw new BusinessRuleException("Số người ở phải từ 1 người trở lên.");
+        if (dto.DurationMonths < 1 || dto.DurationMonths > 36) throw new BusinessRuleException("Thời hạn thuê phải từ 1 đến 36 tháng.");
         if (dto.NumberOfOccupants > room.Capacity) throw ApiException.BadRequest($"Phòng chỉ chứa tối đa {room.Capacity} người.");
         if (room.BoardingHouse.AllowedTenantType == AllowedTenantType.StudentOnly && !profile.IsStudent) throw ApiException.BadRequest("Nhà trọ này chỉ nhận sinh viên.");
         if (dto.MoveInDate.Date < DateTime.Today) throw ApiException.BadRequest("Ngày dọn vào không được ở quá khứ.");
@@ -191,14 +214,18 @@ public class RentalService : IRentalService
         if (req.Status != RentalRequestStatus.Pending) throw ApiException.Conflict("Yêu cầu này đã được xử lý.");
         if (house.Status != HouseStatus.Active) throw ApiException.BadRequest("Nhà trọ chưa được duyệt PCCC.");
         if (room.Status != RoomStatus.Available) throw ApiException.Conflict("Phòng đã có người thuê.");
+        if (req.NumberOfOccupants < 1) throw new BusinessRuleException("Số người ở phải từ 1 người trở lên.");
         if (req.NumberOfOccupants > room.Capacity) throw ApiException.BadRequest($"Số người vượt sức chứa ({room.Capacity}).");
         if (house.AllowedTenantType == AllowedTenantType.StudentOnly && !(req.Tenant.TenantProfile?.IsStudent ?? false)) throw ApiException.BadRequest("Nhà trọ chỉ nhận sinh viên.");
         if (await _db.Contracts.AnyAsync(c => c.TenantId == req.TenantId && c.Status == ContractStatus.Active)) throw ApiException.Conflict("Người thuê đang có hợp đồng hiệu lực khác.");
 
         var start = (dto.StartDate ?? req.MoveInDate).Date;
+        if (start < DateTime.Today) throw ApiException.BadRequest("Ngày bắt đầu hợp đồng không được ở quá khứ.");
         var months = dto.DurationMonths ?? req.DurationMonths;
+        if (months < 1 || months > 36) throw new BusinessRuleException("Thời hạn thuê phải từ 1 đến 36 tháng.");
         var end = start.AddMonths(months);
         if (end <= start) throw ApiException.BadRequest("Ngày kết thúc phải sau ngày bắt đầu.");
+        if (end <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc hợp đồng phải ở tương lai.");
 
         var serviceIds = dto.ServiceIds.Distinct().ToList();
         if (serviceIds.Count > 0)
@@ -208,6 +235,13 @@ public class RentalService : IRentalService
         }
         if (dto.Members.Count > room.Capacity - 1) throw ApiException.BadRequest("Số người ở cùng vượt sức chứa phòng.");
 
+        var tenantCitizenId = req.Tenant.TenantProfile?.CitizenId;
+        var memberCitizenIds = dto.Members.Select(m => m.CitizenId.Trim()).ToList();
+        if (memberCitizenIds.Distinct().Count() != memberCitizenIds.Count)
+            throw new BusinessRuleException("Danh sách thành viên ở cùng có số CCCD bị trùng lặp.");
+        if (tenantCitizenId is not null && memberCitizenIds.Contains(tenantCitizenId))
+            throw new BusinessRuleException("CCCD của thành viên ở cùng không được trùng với người đại diện đứng tên hợp đồng.");
+
         var assets = await _db.RoomAssets.AsNoTracking().Where(a => a.RoomId == room.Id).ToListAsync();
 
         await using var tx = await _db.Database.BeginTransactionAsync();
@@ -215,7 +249,8 @@ public class RentalService : IRentalService
         {
             RoomId = room.Id, TenantId = req.TenantId, RentalRequestId = req.Id, StartDate = start, EndDate = end,
             MonthlyRent = room.Price, DepositAmount = dto.DepositAmount ?? room.DepositAmount,
-            DepositPaidAt = dto.DepositPaid ? DateTime.UtcNow : null, Status = ContractStatus.Active
+            DepositPaidAt = dto.DepositPaid ? DateTime.UtcNow : null, Status = ContractStatus.Active,
+            InitialElectricIndex = dto.InitialElectricIndex, InitialWaterIndex = dto.InitialWaterIndex
         };
         foreach (var m in dto.Members) contract.Members.Add(new ContractMember { FullName = m.FullName.Trim(), CitizenId = m.CitizenId, Phone = m.Phone });
         foreach (var sid in serviceIds) contract.Services.Add(new ContractService { ServiceId = sid });
@@ -287,6 +322,7 @@ public class RentalService : IRentalService
             HouseName = c.Room.BoardingHouse.Name, Address = c.Room.BoardingHouse.Address, TenantId = c.TenantId, TenantName = c.Tenant.FullName,
             TenantPhone = c.Tenant.PhoneNumber, LandlordName = c.Room.BoardingHouse.Landlord.FullName, LandlordPhone = c.Room.BoardingHouse.Landlord.PhoneNumber,
             StartDate = c.StartDate, EndDate = c.EndDate, MonthlyRent = c.MonthlyRent, DepositAmount = c.DepositAmount, DepositPaidAt = c.DepositPaidAt,
+            InitialElectricIndex = c.InitialElectricIndex, InitialWaterIndex = c.InitialWaterIndex,
             Status = c.Status.ToString(),
             DisplayStatus = c.Status == ContractStatus.Active && c.EndDate.Date < DateTime.Today ? "Expired" : c.Status.ToString(),
             TerminatedAt = c.TerminatedAt, CreatedAt = c.CreatedAt,
@@ -327,7 +363,21 @@ public class RentalService : IRentalService
         var c = await GetOwnedContractAsync(landlordId, Roles.Landlord, id, track: true);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (dto.NewEndDate.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
+        if (dto.NewEndDate.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
+        if (dto.NewEndDate.Date > c.EndDate.Date.AddMonths(36))
+            throw new BusinessRuleException("Thời gian gia hạn hợp đồng tối đa 36 tháng mỗi lần.");
         c.EndDate = dto.NewEndDate.Date;
+
+        var pendingRenew = await _db.ContractChangeRequests
+            .Where(r => r.ContractId == id && r.Type == ChangeRequestType.Renew && r.Status == ChangeRequestStatus.Pending)
+            .ToListAsync();
+        foreach (var req in pendingRenew)
+        {
+            req.Status = ChangeRequestStatus.Approved;
+            req.DecisionNote = $"Chủ trọ đã gia hạn trực tiếp đến ngày {dto.NewEndDate:dd/MM/yyyy}.";
+            req.DecidedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
     }
 
@@ -369,16 +419,25 @@ public class RentalService : IRentalService
         var validIds = checkIn.Select(a => a.RoomAssetId).ToHashSet();
         if (dto.Items.Any(i => !validIds.Contains(i.RoomAssetId))) throw ApiException.BadRequest("Có tài sản không nằm trong biên bản nhận phòng.");
 
+        var duplicateAssetIds = dto.Items.GroupBy(i => i.RoomAssetId).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        if (duplicateAssetIds.Count > 0)
+            throw new BusinessRuleException($"Phát hiện tài sản (ID: {string.Join(", ", duplicateAssetIds)}) bị gửi lặp lại trong danh sách trả phòng. Vui lòng kiểm tra lại để tránh nhân đôi tiền khấu trừ.");
+
+        if (dto.Items.Any(i => i.DeductionAmount < 0))
+            throw new BusinessRuleException("Số tiền khấu trừ cho từng tài sản không được âm.");
+
         await using var tx = await _db.Database.BeginTransactionAsync();
         var existing = await _db.ContractAssets.Where(a => a.ContractId == contractId && a.Stage == AssetStage.CheckOut).ToListAsync();
         _db.ContractAssets.RemoveRange(existing);   // cho phép ghi lại biên bản trả phòng trước khi quyết toán
         foreach (var i in dto.Items)
         {
             var baseline = checkIn.First(a => a.RoomAssetId == i.RoomAssetId);
+            if (!Enum.TryParse<AssetCondition>(i.Condition, true, out var aCond))
+                throw ApiException.BadRequest("Tình trạng tài sản trả phòng không hợp lệ.");
             _db.ContractAssets.Add(new ContractAsset
             {
                 ContractId = contractId, RoomAssetId = i.RoomAssetId, Stage = AssetStage.CheckOut, Name = baseline.Name, Quantity = i.Quantity,
-                Condition = Enum.Parse<AssetCondition>(i.Condition), DeductionAmount = i.DeductionAmount, Note = i.Note
+                Condition = aCond, DeductionAmount = i.DeductionAmount, Note = i.Note
             });
         }
         await _db.SaveChangesAsync();
@@ -402,11 +461,17 @@ public class RentalService : IRentalService
     {
         var c = await GetOwnedContractAsync(tenantId, Roles.Tenant, contractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
-        var t = Enum.Parse<ChangeRequestType>(type, true);
+        if (!Enum.TryParse<ChangeRequestType>(type, true, out var t))
+            throw ApiException.BadRequest("Loại yêu cầu không hợp lệ (Renew, Terminate).");
+        if (t == ChangeRequestType.Terminate && c.EndDate.Date < DateTime.Today)
+            throw new BusinessRuleException("Hợp đồng đã quá hạn hiệu lực, không thể gửi yêu cầu chấm dứt hợp đồng.");
         if (t == ChangeRequestType.Renew)
         {
             if (dto.NewEndDate is null) throw ApiException.BadRequest("Vui lòng chọn ngày kết thúc mới.");
             if (dto.NewEndDate.Value.Date <= c.EndDate.Date) throw ApiException.BadRequest("Ngày kết thúc mới phải sau ngày kết thúc hiện tại.");
+            if (dto.NewEndDate.Value.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày kết thúc mới phải ở tương lai.");
+            if (dto.NewEndDate.Value.Date > c.EndDate.Date.AddMonths(36))
+                throw new BusinessRuleException("Thời gian gia hạn hợp đồng tối đa 36 tháng mỗi lần.");
         }
         if (await _db.ContractChangeRequests.AnyAsync(x => x.ContractId == contractId && x.Status == ChangeRequestStatus.Pending))
             throw ApiException.Conflict("Đang có yêu cầu chờ xử lý cho hợp đồng này.");
@@ -435,7 +500,10 @@ public class RentalService : IRentalService
         x.Status = dto.Approve ? ChangeRequestStatus.Approved : ChangeRequestStatus.Rejected;
         x.DecisionNote = dto.Note; x.DecidedAt = DateTime.UtcNow;
         if (dto.Approve && x.Type == ChangeRequestType.Renew && x.NewEndDate is not null && x.Contract.Status == ContractStatus.Active)
+        {
+            if (x.NewEndDate.Value.Date <= DateTime.Today) throw ApiException.BadRequest("Ngày gia hạn đã qua, không thể duyệt.");
             x.Contract.EndDate = x.NewEndDate.Value;
+        }
         // Terminate được duyệt: Landlord tiếp tục bước biên bản trả phòng → quyết toán cọc (luồng 6)
         await _db.SaveChangesAsync();
     }
@@ -449,7 +517,16 @@ public class RentalService : IRentalService
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (await _db.DepositSettlements.AnyAsync(s => s.ContractId == contractId)) throw ApiException.Conflict("Hợp đồng đã quyết toán cọc.");
 
+        // 1. Kiểm tra nghiệm thu tài sản nếu phòng có biên bản nhận phòng
+        var hasCheckIn = await _db.ContractAssets.AnyAsync(a => a.ContractId == contractId && a.Stage == AssetStage.CheckIn);
         var checkout = await _db.ContractAssets.AsNoTracking().Where(a => a.ContractId == contractId && a.Stage == AssetStage.CheckOut).ToListAsync();
+        if (hasCheckIn && checkout.Count == 0)
+            throw ApiException.BadRequest("Vui lòng lập biên bản kiểm tra tài sản trả phòng (CheckOut) trước khi quyết toán cọc.");
+
+        // 2. Chống trừ tiền trùng nếu có hóa đơn đang chờ xác nhận thanh toán (PendingConfirm)
+        if (await _db.Invoices.AnyAsync(i => i.ContractId == contractId && i.Status == InvoiceStatus.PendingConfirm))
+            throw ApiException.BadRequest("Đang có hóa đơn chờ xác nhận thanh toán. Vui lòng đối soát thanh toán trước khi quyết toán cọc.");
+
         var damage = checkout.Sum(a => a.DeductionAmount);
         var unpaidInvoices = dto.DeductUnpaidInvoices
             ? await _db.Invoices.Where(i => i.ContractId == contractId && i.Status != InvoiceStatus.Paid).ToListAsync()
@@ -475,6 +552,15 @@ public class RentalService : IRentalService
             _db.Payments.Add(new Payment { InvoiceId = inv.Id, Amount = inv.Total, Note = "Trừ vào tiền cọc khi trả phòng", ConfirmedAt = DateTime.UtcNow });
         }
 
+        // Đóng các yêu cầu gia hạn/trả phòng đang Pending của hợp đồng
+        var pendingChanges = await _db.ContractChangeRequests.Where(x => x.ContractId == contractId && x.Status == ChangeRequestStatus.Pending).ToListAsync();
+        foreach (var change in pendingChanges)
+        {
+            change.Status = change.Type == ChangeRequestType.Terminate ? ChangeRequestStatus.Approved : ChangeRequestStatus.Rejected;
+            change.DecisionNote = "Đã quyết toán cọc và kết thúc hợp đồng.";
+            change.DecidedAt = DateTime.UtcNow;
+        }
+
         c.Status = ContractStatus.Terminated; c.TerminatedAt = DateTime.UtcNow;
         c.Room.Status = RoomStatus.Available;
 
@@ -486,8 +572,15 @@ public class RentalService : IRentalService
             foreach (var ra in roomAssets)
             {
                 var co = checkout.First(a => a.RoomAssetId == ra.Id);
-                ra.Condition = co.Condition;
-                if (co.Quantity >= 1) ra.Quantity = co.Quantity;
+                if (co.Quantity <= 0)
+                {
+                    _db.RoomAssets.Remove(ra);
+                }
+                else
+                {
+                    ra.Condition = co.Condition;
+                    ra.Quantity = co.Quantity;
+                }
             }
         }
 

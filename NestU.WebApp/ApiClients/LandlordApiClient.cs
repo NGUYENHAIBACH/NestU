@@ -5,6 +5,7 @@ using NestU.WebApp.Models.Common;
 using NestU.WebApp.Models.Houses;
 using NestU.WebApp.Models.Rentals;
 using NestU.WebApp.Models.Rooms;
+using NestU.WebApp.Models.Stats;
 using NestU.WebApp.Models.Support;
 
 namespace NestU.WebApp.ApiClients;
@@ -127,16 +128,14 @@ public class LandlordApiClient : ApiClientBase
     public Task<ApiResult<List<MaintenanceDto>>> MaintenanceAsync(string? status = null) => GetAsync<List<MaintenanceDto>>("api/landlord/maintenance-requests" + Q(status));
     public Task<ApiResult> UpdateMaintenanceAsync(UpdateMaintenanceStatusDto m) => PutAsync($"api/landlord/maintenance-requests/{m.Id}/status", new { m.Status, m.Note, m.AssetCondition });
 
-    private static string Q(string? v, string name = "status") => string.IsNullOrEmpty(v) ? "" : $"?{name}={Uri.EscapeDataString(v)}";
-}
+    // Thống kê & Doanh thu
+    public Task<ApiResult<LandlordStatsDto>> StatsAsync(int? year = null, int? houseId = null)
+    {
+        var q = new List<string>();
+        if (year.HasValue) q.Add($"year={year.Value}");
+        if (houseId.HasValue) q.Add($"houseId={houseId.Value}");
+        return GetAsync<LandlordStatsDto>("api/landlord/stats/revenue" + (q.Count > 0 ? "?" + string.Join("&", q) : ""));
+    }
 
-public class LandlordProfileDto
-{
-    public string UserId { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Họ tên là bắt buộc")] [System.ComponentModel.DataAnnotations.Display(Name = "Họ và tên")] public string FullName { get; set; } = string.Empty;
-    [System.ComponentModel.DataAnnotations.RegularExpression(@"^\d{12}$", ErrorMessage = "CCCD gồm 12 chữ số")] [System.ComponentModel.DataAnnotations.Display(Name = "Số CCCD")] public string CitizenId { get; set; } = string.Empty;
-    [System.ComponentModel.DataAnnotations.RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại gồm 10 chữ số")] [System.ComponentModel.DataAnnotations.Display(Name = "Số điện thoại")] public string Phone { get; set; } = string.Empty;
-    public string ApprovalStatus { get; set; } = string.Empty;
-    public string? ReviewNote { get; set; }
+    private static string Q(string? v, string name = "status") => string.IsNullOrEmpty(v) ? "" : $"?{name}={Uri.EscapeDataString(v)}";
 }

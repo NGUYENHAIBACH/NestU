@@ -33,6 +33,8 @@ public class BillingService : IBillingService
         var rows = await q.OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).ThenBy(r => r.Contract.Room.RoomNumber).ToListAsync();
 
         var cids = rows.Select(r => r.ContractId).Distinct().ToList();
+        var contracts = await _db.Contracts.AsNoTracking().Where(c => cids.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => new { c.InitialElectricIndex, c.InitialWaterIndex });
         var invoiced = await _db.Invoices.AsNoTracking().Where(i => cids.Contains(i.ContractId)).Select(i => new { i.ContractId, i.Year, i.Month }).ToListAsync();
         var invoicedSet = invoiced.Select(i => (i.ContractId, i.Year, i.Month)).ToHashSet();
 
@@ -40,11 +42,14 @@ public class BillingService : IBillingService
         {
             var prev = rows.Where(x => x.ContractId == r.ContractId && (x.Year < r.Year || (x.Year == r.Year && x.Month < r.Month)))
                 .OrderByDescending(x => x.Year).ThenByDescending(x => x.Month).FirstOrDefault();
+            contracts.TryGetValue(r.ContractId, out var initC);
             return new UtilityReadingDto
             {
                 Id = r.Id, ContractId = r.ContractId, RoomNumber = r.Contract.Room.RoomNumber, TenantName = r.Contract.Tenant.FullName,
                 Month = r.Month, Year = r.Year, ElectricIndex = r.ElectricIndex, WaterIndex = r.WaterIndex,
-                PreviousElectricIndex = prev?.ElectricIndex, PreviousWaterIndex = prev?.WaterIndex, RecordedAt = r.RecordedAt,
+                PreviousElectricIndex = prev?.ElectricIndex ?? initC?.InitialElectricIndex,
+                PreviousWaterIndex = prev?.WaterIndex ?? initC?.InitialWaterIndex,
+                RecordedAt = r.RecordedAt,
                 HasInvoice = invoicedSet.Contains((r.ContractId, r.Year, r.Month))
             };
         }).ToList();
@@ -54,21 +59,41 @@ public class BillingService : IBillingService
     {
         var c = await _rentals.GetOwnedContractAsync(landlordId, Roles.Landlord, dto.ContractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
+        var readingPeriod = new DateTime(dto.Year, dto.Month, 1);
+        if (readingPeriod < new DateTime(c.StartDate.Year, c.StartDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng ghi chỉ số ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
+        if (readingPeriod > new DateTime(c.EndDate.Year, c.EndDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng ghi chỉ số ({dto.Month}/{dto.Year}) vượt quá ngày kết thúc hợp đồng ({c.EndDate:MM/yyyy}).");
         if (await _db.UtilityReadings.AnyAsync(r => r.ContractId == dto.ContractId && r.Year == dto.Year && r.Month == dto.Month))
             throw ApiException.Conflict($"Đã ghi chỉ số tháng {dto.Month}/{dto.Year} cho hợp đồng này.");
 
+        if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && (i.Year > dto.Year || (i.Year == dto.Year && i.Month > dto.Month))))
+            throw new BusinessRuleException($"Không thể ghi chỉ số tháng {dto.Month}/{dto.Year} vì đã tồn tại hóa đơn ở các kỳ tương lai.");
+
         var prev = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year < dto.Year || (r.Year == dto.Year && r.Month < dto.Month)))
             .OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).FirstOrDefaultAsync();
-        if (prev is not null)
+        var baseElectric = prev?.ElectricIndex ?? c.InitialElectricIndex;
+        var baseWater = prev?.WaterIndex ?? c.InitialWaterIndex;
+
+        if (dto.ElectricIndex < baseElectric)
+            throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được nhỏ hơn chỉ số kỳ liền trước ({baseElectric}).");
+        if (dto.WaterIndex < baseWater)
+            throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được nhỏ hơn chỉ số kỳ liền trước ({baseWater}).");
+
+        var next = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year > dto.Year || (r.Year == dto.Year && r.Month > dto.Month)))
+            .OrderBy(r => r.Year).ThenBy(r => r.Month).FirstOrDefaultAsync();
+        if (next is not null)
         {
-            if (dto.ElectricIndex < prev.ElectricIndex) throw ApiException.BadRequest($"Chỉ số điện ({dto.ElectricIndex}) nhỏ hơn tháng trước ({prev.ElectricIndex}).");
-            if (dto.WaterIndex < prev.WaterIndex) throw ApiException.BadRequest($"Chỉ số nước ({dto.WaterIndex}) nhỏ hơn tháng trước ({prev.WaterIndex}).");
+            if (dto.ElectricIndex > next.ElectricIndex)
+                throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được lớn hơn chỉ số kỳ sau ({next.Month}/{next.Year}: {next.ElectricIndex}).");
+            if (dto.WaterIndex > next.WaterIndex)
+                throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được lớn hơn chỉ số kỳ sau ({next.Month}/{next.Year}: {next.WaterIndex}).");
         }
 
         var r = new UtilityReading { ContractId = dto.ContractId, Month = dto.Month, Year = dto.Year, ElectricIndex = dto.ElectricIndex, WaterIndex = dto.WaterIndex };
         _db.UtilityReadings.Add(r);
         await _db.SaveChangesAsync();
-        dto.Id = r.Id; dto.RecordedAt = r.RecordedAt; dto.PreviousElectricIndex = prev?.ElectricIndex; dto.PreviousWaterIndex = prev?.WaterIndex;
+        dto.Id = r.Id; dto.RecordedAt = r.RecordedAt; dto.PreviousElectricIndex = baseElectric; dto.PreviousWaterIndex = baseWater;
         dto.RoomNumber = c.Room.RoomNumber;
         return dto;
     }
@@ -80,6 +105,32 @@ public class BillingService : IBillingService
     {
         var c = await _rentals.GetOwnedContractAsync(landlordId, Roles.Landlord, dto.ContractId);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
+        if (dto.DueDate.HasValue && dto.DueDate.Value.Date < DateTime.Today)
+            throw ApiException.BadRequest("Hạn thanh toán không được ở quá khứ.");
+        var invoicePeriod = new DateTime(dto.Year, dto.Month, 1);
+        var contractStartMonth = new DateTime(c.StartDate.Year, c.StartDate.Month, 1);
+        if (invoicePeriod < contractStartMonth)
+            throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) trước ngày bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
+        if (invoicePeriod > new DateTime(c.EndDate.Year, c.EndDate.Month, 1))
+            throw ApiException.BadRequest($"Tháng hóa đơn ({dto.Month}/{dto.Year}) vượt quá ngày kết thúc hợp đồng ({c.EndDate:MM/yyyy}).");
+
+        var latestInvoice = await _db.Invoices.AsNoTracking()
+            .Where(i => i.ContractId == dto.ContractId)
+            .OrderByDescending(i => i.Year).ThenByDescending(i => i.Month)
+            .FirstOrDefaultAsync();
+
+        if (latestInvoice is null)
+        {
+            if (invoicePeriod != contractStartMonth)
+                throw new BusinessRuleException($"Hóa đơn đầu tiên phải được lập cho tháng bắt đầu hợp đồng ({c.StartDate:MM/yyyy}).");
+        }
+        else
+        {
+            var expectedPeriod = new DateTime(latestInvoice.Year, latestInvoice.Month, 1).AddMonths(1);
+            if (invoicePeriod != expectedPeriod)
+                throw new BusinessRuleException($"Hóa đơn phải được lập tuần tự theo từng tháng. Kỳ tiếp theo cần lập là tháng {expectedPeriod.Month}/{expectedPeriod.Year}.");
+        }
+
         if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && i.Year == dto.Year && i.Month == dto.Month))
             throw ApiException.Conflict($"Hóa đơn tháng {dto.Month}/{dto.Year} đã được lập.");
 
@@ -92,17 +143,20 @@ public class BillingService : IBillingService
         var occupants = 1 + await _db.ContractMembers.CountAsync(m => m.ContractId == c.Id);
         var services = await _db.ContractServices.AsNoTracking().Include(s => s.Service).Where(s => s.ContractId == c.Id).Select(s => s.Service).ToListAsync();
 
-        var kwh = reading.ElectricIndex - (prev?.ElectricIndex ?? reading.ElectricIndex);
-        var m3 = reading.WaterIndex - (prev?.WaterIndex ?? reading.WaterIndex);
+        var baseElectric = prev?.ElectricIndex ?? c.InitialElectricIndex;
+        var baseWater = prev?.WaterIndex ?? c.InitialWaterIndex;
+
+        var kwh = reading.ElectricIndex - baseElectric;
+        var m3 = reading.WaterIndex - baseWater;
 
         var details = new List<InvoiceDetail>
         {
             new() { ItemName = $"Tiền phòng tháng {dto.Month}/{dto.Year}", Quantity = 1, Unit = "tháng", UnitPrice = c.MonthlyRent, Amount = c.MonthlyRent },
             // Quy định 2: đơn giá tại thời điểm lập, đã bị chặn ≤ 4.000 ở nhà trọ
-            new() { ItemName = $"Tiền điện ({(prev?.ElectricIndex ?? reading.ElectricIndex)} → {reading.ElectricIndex})", Quantity = kwh, Unit = "kWh", UnitPrice = house.ElectricityPrice, Amount = kwh * house.ElectricityPrice }
+            new() { ItemName = $"Tiền điện ({baseElectric} → {reading.ElectricIndex})", Quantity = kwh, Unit = "kWh", UnitPrice = house.ElectricityPrice, Amount = kwh * house.ElectricityPrice }
         };
         if (house.WaterBillingType == WaterBillingType.PerM3)
-            details.Add(new InvoiceDetail { ItemName = $"Tiền nước ({(prev?.WaterIndex ?? reading.WaterIndex)} → {reading.WaterIndex})", Quantity = m3, Unit = "m³", UnitPrice = house.WaterPrice, Amount = m3 * house.WaterPrice });
+            details.Add(new InvoiceDetail { ItemName = $"Tiền nước ({baseWater} → {reading.WaterIndex})", Quantity = m3, Unit = "m³", UnitPrice = house.WaterPrice, Amount = m3 * house.WaterPrice });
         else
             details.Add(new InvoiceDetail { ItemName = "Tiền nước (theo người)", Quantity = occupants, Unit = "người", UnitPrice = house.WaterPrice, Amount = occupants * house.WaterPrice });
         foreach (var s in services)
@@ -111,10 +165,13 @@ public class BillingService : IBillingService
             details.Add(new InvoiceDetail { ItemName = s.Name, Quantity = qty, Unit = s.Unit == ServiceUnit.PerPerson ? "người" : "tháng", UnitPrice = s.Price, Amount = qty * s.Price });
         }
 
+        var defaultDueDate = new DateTime(dto.Year, dto.Month, 1).AddMonths(1).AddDays(9);
+        var calculatedDueDate = dto.DueDate?.Date ?? (defaultDueDate < DateTime.Today ? DateTime.Today.AddDays(7) : defaultDueDate);
+
         var invoice = new Invoice
         {
             ContractId = c.Id, Month = dto.Month, Year = dto.Year, Total = details.Sum(d => d.Amount),
-            DueDate = dto.DueDate?.Date ?? new DateTime(dto.Year, dto.Month, 1).AddMonths(1).AddDays(9), Status = InvoiceStatus.Unpaid
+            DueDate = calculatedDueDate, Status = InvoiceStatus.Unpaid
         };
         foreach (var d in details) invoice.Details.Add(d);
         _db.Invoices.Add(invoice);
@@ -197,13 +254,14 @@ public class BillingService : IBillingService
 
     public async Task RejectPaymentAsync(string landlordId, int invoiceId, string reason)
     {
+        if (string.IsNullOrWhiteSpace(reason)) throw ApiException.BadRequest("Vui lòng ghi lý do từ chối thanh toán.");
         var inv = await _db.Invoices.Include(i => i.Payments).Include(i => i.Contract).ThenInclude(c => c.Room).ThenInclude(r => r.BoardingHouse).FirstOrDefaultAsync(i => i.Id == invoiceId)
             ?? throw ApiException.NotFound("Không tìm thấy hóa đơn.");
         if (inv.Contract.Room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
         if (inv.Status != InvoiceStatus.PendingConfirm) throw ApiException.Conflict("Hóa đơn chưa có báo thanh toán chờ xác nhận.");
         var last = inv.Payments.Where(p => p.ConfirmedAt == null).OrderByDescending(p => p.ReportedAt).FirstOrDefault();
         if (last is not null) _db.Payments.Remove(last);
-        inv.Status = InvoiceStatus.Unpaid; inv.RejectReason = reason;
+        inv.Status = InvoiceStatus.Unpaid; inv.RejectReason = reason.Trim();
         await _db.SaveChangesAsync();
     }
 

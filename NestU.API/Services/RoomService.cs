@@ -103,7 +103,7 @@ public class RoomService : IRoomService
     public async Task<RoomDetailDto> CreateAsync(string landlordId, CreateRoomDto dto)
     {
         var house = await _houses.GetOwnedHouseAsync(landlordId, dto.BoardingHouseId);
-        if (dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Nhà trọ chỉ có {house.TotalFloors} tầng.");
+        if (dto.Floor < 1 || dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Tầng phòng phải từ 1 đến {house.TotalFloors}.");
         if (await _db.Rooms.AnyAsync(r => r.BoardingHouseId == house.Id && r.RoomNumber == dto.RoomNumber.Trim()))
             throw ApiException.Conflict($"Số phòng {dto.RoomNumber} đã tồn tại.");
         await ValidateAmenitiesAndAssets(dto.AmenityIds, dto.Assets);
@@ -124,7 +124,7 @@ public class RoomService : IRoomService
     public async Task<List<RoomListDto>> BulkCreateAsync(string landlordId, int houseId, BulkCreateRoomsDto dto)
     {
         var house = await _houses.GetOwnedHouseAsync(landlordId, houseId);
-        if (dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Nhà trọ chỉ có {house.TotalFloors} tầng.");
+        if (dto.Floor < 1 || dto.Floor > house.TotalFloors) throw ApiException.BadRequest($"Tầng phòng phải từ 1 đến {house.TotalFloors}.");
         if (dto.FromNumber > dto.ToNumber) throw ApiException.BadRequest("Số bắt đầu phải nhỏ hơn hoặc bằng số kết thúc.");
         if (dto.ToNumber - dto.FromNumber + 1 > 30) throw ApiException.BadRequest("Mỗi lần tạo tối đa 30 phòng.");
         await ValidateAmenitiesAndAssets(dto.AmenityIds, dto.Assets);
@@ -160,7 +160,10 @@ public class RoomService : IRoomService
         var room = await _db.Rooms.Include(r => r.BoardingHouse).Include(r => r.RoomAmenities).Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Id == roomId) ?? throw ApiException.NotFound("Không tìm thấy phòng.");
         if (room.BoardingHouse.LandlordId != landlordId) throw ApiException.Forbidden();
-        if (dto.Floor > room.BoardingHouse.TotalFloors) throw ApiException.BadRequest($"Nhà trọ chỉ có {room.BoardingHouse.TotalFloors} tầng.");
+        if (room.Status == RoomStatus.Occupied)
+            throw ApiException.Conflict("Phòng đang có người thuê, không thể chỉnh sửa thông tin phòng.");
+        if (dto.Floor < 1 || dto.Floor > room.BoardingHouse.TotalFloors)
+            throw ApiException.BadRequest($"Tầng phòng phải từ 1 đến {room.BoardingHouse.TotalFloors}.");
         if (await _db.Rooms.AnyAsync(r => r.BoardingHouseId == room.BoardingHouseId && r.RoomNumber == dto.RoomNumber.Trim() && r.Id != roomId))
             throw ApiException.Conflict($"Số phòng {dto.RoomNumber} đã tồn tại.");
         await ValidateAmenitiesAndAssets(dto.AmenityIds, new());
@@ -177,15 +180,40 @@ public class RoomService : IRoomService
         var room = await GetOwnedRoomAsync(landlordId, roomId, track: true);
         if (await _db.Contracts.AnyAsync(c => c.RoomId == roomId))
             throw ApiException.Conflict("Phòng đã có hợp đồng, không thể xóa. Hãy đặt trạng thái Đang sửa nếu không cho thuê.");
+        if (await _db.RentalRequests.AnyAsync(r => r.RoomId == roomId && r.Status == RentalRequestStatus.Pending))
+            throw ApiException.Conflict("Phòng đang có yêu cầu thuê chờ duyệt, không thể xóa.");
+        if (await _db.ViewingAppointments.AnyAsync(a => a.RoomId == roomId && (a.Status == AppointmentStatus.Pending || (a.Status == AppointmentStatus.Confirmed && a.ScheduledAt > DateTime.Now))))
+            throw ApiException.Conflict("Phòng đang có lịch xem chờ hoặc đã xác nhận, không thể xóa.");
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        var requests = await _db.RentalRequests.Where(r => r.RoomId == roomId).ToListAsync();
+        if (requests.Count > 0) _db.RentalRequests.RemoveRange(requests);
+
+        var appointments = await _db.ViewingAppointments.Where(a => a.RoomId == roomId).ToListAsync();
+        if (appointments.Count > 0) _db.ViewingAppointments.RemoveRange(appointments);
+
         _db.Rooms.Remove(room);
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
     }
 
     public async Task SetStatusAsync(string landlordId, int roomId, SetRoomStatusDto dto)
     {
         var room = await GetOwnedRoomAsync(landlordId, roomId, track: true);
-        if (room.Status == RoomStatus.Occupied) throw ApiException.BadRequest("Phòng đang có người thuê, không đổi trạng thái thủ công được.");
-        room.Status = Enum.Parse<RoomStatus>(dto.Status);
+        if (room.Status == RoomStatus.Occupied || await _db.Contracts.AnyAsync(c => c.RoomId == roomId && c.Status == ContractStatus.Active))
+            throw ApiException.BadRequest("Phòng đang có người thuê, không đổi trạng thái thủ công được.");
+        if (!Enum.TryParse<RoomStatus>(dto.Status, true, out var rStatus))
+            throw ApiException.BadRequest("Trạng thái phòng không hợp lệ (Available, Maintenance).");
+        if (rStatus == RoomStatus.Occupied)
+            throw ApiException.BadRequest("Chỉ được chuyển trạng thái sang Còn trống (Available) hoặc Đang sửa (Maintenance).");
+        if (rStatus == RoomStatus.Maintenance)
+        {
+            if (await _db.RentalRequests.AnyAsync(r => r.RoomId == roomId && r.Status == RentalRequestStatus.Pending))
+                throw ApiException.Conflict("Phòng đang có yêu cầu thuê chờ duyệt, vui lòng xử lý yêu cầu trước khi chuyển sang Đang sửa.");
+            if (await _db.ViewingAppointments.AnyAsync(a => a.RoomId == roomId && a.Status == AppointmentStatus.Pending))
+                throw ApiException.Conflict("Phòng đang có lịch xem chờ xác nhận, vui lòng xử lý lịch xem trước khi chuyển sang Đang sửa.");
+        }
+        room.Status = rStatus;
         await _db.SaveChangesAsync();
     }
 
@@ -204,11 +232,15 @@ public class RoomService : IRoomService
     public async Task<RoomAssetDto> AddAssetAsync(string landlordId, int roomId, RoomAssetDto dto)
     {
         await GetOwnedRoomAsync(landlordId, roomId);
+        if (dto.Quantity < 1) throw new BusinessRuleException("Số lượng tài sản phải từ 1 trở lên.");
+        if (dto.EstimatedValue < 0) throw new BusinessRuleException("Giá trị ước tính tài sản không được âm.");
         if (!await _db.AssetTypes.AnyAsync(t => t.Id == dto.AssetTypeId)) throw ApiException.BadRequest("Loại tài sản không tồn tại.");
+        if (!Enum.TryParse<AssetCondition>(dto.Condition, true, out var aCond))
+            throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ (Good, Damaged, Broken).");
         var a = new RoomAsset
         {
             RoomId = roomId, AssetTypeId = dto.AssetTypeId, Name = dto.Name.Trim(), Quantity = dto.Quantity,
-            Condition = Enum.Parse<AssetCondition>(dto.Condition), EstimatedValue = dto.EstimatedValue, Note = dto.Note
+            Condition = aCond, EstimatedValue = dto.EstimatedValue, Note = dto.Note
         };
         _db.RoomAssets.Add(a);
         await _db.SaveChangesAsync();
@@ -220,10 +252,14 @@ public class RoomService : IRoomService
     public async Task UpdateAssetAsync(string landlordId, int roomId, int assetId, RoomAssetDto dto)
     {
         await GetOwnedRoomAsync(landlordId, roomId);
+        if (dto.Quantity < 1) throw new BusinessRuleException("Số lượng tài sản phải từ 1 trở lên.");
+        if (dto.EstimatedValue < 0) throw new BusinessRuleException("Giá trị ước tính tài sản không được âm.");
         var a = await _db.RoomAssets.FirstOrDefaultAsync(x => x.Id == assetId && x.RoomId == roomId) ?? throw ApiException.NotFound("Không tìm thấy tài sản.");
         if (!await _db.AssetTypes.AnyAsync(t => t.Id == dto.AssetTypeId)) throw ApiException.BadRequest("Loại tài sản không tồn tại.");
+        if (!Enum.TryParse<AssetCondition>(dto.Condition, true, out var aCondUpdate))
+            throw ApiException.BadRequest("Tình trạng tài sản không hợp lệ (Good, Damaged, Broken).");
         a.AssetTypeId = dto.AssetTypeId; a.Name = dto.Name.Trim(); a.Quantity = dto.Quantity;
-        a.Condition = Enum.Parse<AssetCondition>(dto.Condition); a.EstimatedValue = dto.EstimatedValue; a.Note = dto.Note;
+        a.Condition = aCondUpdate; a.EstimatedValue = dto.EstimatedValue; a.Note = dto.Note;
         await _db.SaveChangesAsync();
     }
 
@@ -247,6 +283,7 @@ public class RoomService : IRoomService
             .Where(r => dto.TargetRoomIds.Contains(r.Id) && r.Id != roomId).ToListAsync();
         if (targets.Count != dto.TargetRoomIds.Distinct().Count(x => x != roomId)) throw ApiException.NotFound("Có phòng đích không tồn tại.");
         if (targets.Any(t => t.BoardingHouse.LandlordId != landlordId)) throw ApiException.Forbidden("Có phòng đích không thuộc nhà trọ của bạn.");
+        if (targets.Any(t => t.Status == RoomStatus.Occupied)) throw ApiException.Conflict("Không thể sao chép tài sản vào phòng đang có người thuê.");
 
         await using var tx = await _db.Database.BeginTransactionAsync();
         foreach (var t in targets)
@@ -280,6 +317,8 @@ public class RoomService : IRoomService
         return await LoadDetailAsync(roomId);
     }
 
+    public IQueryable<RoomListDto> GetPublicRoomsQuery() => NestU.API.Controllers.OData.RoomQueries.PublicRooms(_db);
+
     // ----- private -----
     private async Task ValidateAmenitiesAndAssets(List<int> amenityIds, List<AssetTemplateDto> assets)
     {
@@ -290,6 +329,10 @@ public class RoomService : IRoomService
         }
         if (assets.Count > 0)
         {
+            if (assets.Any(a => a.Quantity < 1))
+                throw new BusinessRuleException("Số lượng tài sản trong danh sách phải từ 1 trở lên.");
+            if (assets.Any(a => a.EstimatedValue < 0))
+                throw new BusinessRuleException("Giá trị ước tính tài sản không được âm.");
             var typeIds = assets.Select(a => a.AssetTypeId).Distinct().ToList();
             var ok = await _db.AssetTypes.CountAsync(t => typeIds.Contains(t.Id));
             if (ok != typeIds.Count) throw ApiException.BadRequest("Có loại tài sản không tồn tại.");
@@ -304,6 +347,11 @@ public class RoomService : IRoomService
     private static void ApplyImages(Room room, List<string> urls)
     {
         var i = 0;
-        foreach (var u in urls.Where(u => !string.IsNullOrWhiteSpace(u))) room.Images.Add(new RoomImage { Url = u.Trim(), SortOrder = i++ });
+        foreach (var u in urls.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().Take(20))
+        {
+            var trimmed = u.Trim();
+            if (trimmed.Length > 500) throw ApiException.BadRequest("Đường dẫn ảnh không được vượt quá 500 ký tự.");
+            room.Images.Add(new RoomImage { Url = trimmed, SortOrder = i++ });
+        }
     }
 }

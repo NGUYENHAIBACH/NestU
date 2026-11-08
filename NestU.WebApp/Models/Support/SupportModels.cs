@@ -60,7 +60,7 @@ public class ReviewDto
 
 public class CreateReportDto
 {
-    [Required] [Display(Name = "Đối tượng")] public string TargetType { get; set; } = "Room";
+    [Required] [RegularExpression("^(Landlord|Room|House)$", ErrorMessage = "Loại đối tượng không hợp lệ")] [Display(Name = "Đối tượng")] public string TargetType { get; set; } = "Room";
     [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn đối tượng")] public int TargetId { get; set; }
     public string? TargetLabel { get; set; }
     [Required(ErrorMessage = "Vui lòng nhập lý do")] [StringLength(1000, MinimumLength = 10, ErrorMessage = "Lý do từ 10 đến 1000 ký tự")] [Display(Name = "Nội dung khiếu nại")]

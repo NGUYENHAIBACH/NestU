@@ -21,4 +21,5 @@ public interface IRoomService
 
     // Công khai
     Task<RoomDetailDto> GetPublicDetailAsync(int roomId, string viewerKey);
+    IQueryable<RoomListDto> GetPublicRoomsQuery();
 }

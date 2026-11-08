@@ -23,6 +23,8 @@ public class CreateHouseDto
     [StringLength(100)] [Display(Name = "Tên chủ tài khoản")] public string? AccountName { get; set; }
 }
 
+public class UpdateHouseDto : CreateHouseDto { }
+
 public class HouseDto
 {
     public int Id { get; set; }
@@ -93,12 +95,14 @@ public class CreateCertificateDto
     [Required(ErrorMessage = "Vui lòng chọn file")] [Display(Name = "File giấy chứng nhận (ảnh hoặc PDF)")] public IFormFile? File { get; set; }
 }
 
+public class ReviewCertificateDto : NestU.WebApp.Models.Common.DecisionDto { }
+
 public class ServiceDto
 {
     public int Id { get; set; }
     [Display(Name = "Nhà trọ")] public int BoardingHouseId { get; set; }
     [Required(ErrorMessage = "Tên dịch vụ là bắt buộc")] [StringLength(100)] [Display(Name = "Tên dịch vụ")] public string Name { get; set; } = string.Empty;
     [Range(0, 100_000_000, ErrorMessage = "Giá không hợp lệ")] [Display(Name = "Đơn giá")] public decimal Price { get; set; }
-    [Required] [Display(Name = "Tính theo")] public string Unit { get; set; } = "PerMonth";
+    [Required] [RegularExpression("^(PerMonth|PerPerson)$", ErrorMessage = "Đơn vị tính không hợp lệ")] [Display(Name = "Tính theo")] public string Unit { get; set; } = "PerMonth";
     [Display(Name = "Đang áp dụng")] public bool IsActive { get; set; } = true;
 }

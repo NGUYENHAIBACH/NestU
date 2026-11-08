@@ -4,6 +4,9 @@ namespace NestU.API.Services.Interfaces;
 
 public interface IHouseService
 {
+    Task<LandlordProfileDto> GetProfileAsync(string landlordId);
+    Task UpdateProfileAsync(string landlordId, LandlordProfileDto dto);
+
     Task<List<HouseDto>> GetMineAsync(string landlordId);
     Task<HouseDto> GetMineByIdAsync(string landlordId, int id);
     Task<HouseDto> CreateAsync(string landlordId, CreateHouseDto dto);

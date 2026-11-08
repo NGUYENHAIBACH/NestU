@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NestU.WebApp.ApiClients;
 using NestU.WebApp.Controllers;
+using NestU.WebApp.Models.Houses;
 
 namespace NestU.WebApp.Areas.Landlord.Controllers;
 
