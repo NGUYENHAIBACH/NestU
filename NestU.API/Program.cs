@@ -139,6 +139,7 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     await DbSeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
+    await HistorySeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
 }
 
 app.UseExceptionHandler();

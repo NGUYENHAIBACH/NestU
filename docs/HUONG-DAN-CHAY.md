@@ -29,6 +29,7 @@ Lần đầu chạy https trên máy mới: `dotnet dev-certs https --trust`.
 | chutro2@nestu.vn | Landlord | Đang chờ Admin duyệt hồ sơ |
 | sinhvien1@nestu.vn, sinhvien2@nestu.vn | Tenant | Sinh viên |
 | khach1@nestu.vn | Tenant | Khách thường |
+| nguoithue1..6@nestu.vn | Tenant | Người thuê có lịch sử ~12 tháng (hợp đồng, chỉ số điện nước, hóa đơn, thanh toán, sự cố, quyết toán cọc, đánh giá) do `HistorySeeder` tạo; chạy lần đầu trên CSDL trống |
 
 ## Kịch bản demo (theo tài liệu thiết kế, mục Ngày 6)
 1. `chutro2` đăng nhập → thấy "chờ duyệt". `admin` → Duyệt chủ trọ → duyệt. `chutro2` tạo nhà trọ, upload giấy PCCC → `admin` → Duyệt PCCC → nhà trọ Active.
