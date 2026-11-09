@@ -42,4 +42,13 @@ public class CatalogController : BaseController
         Flash(await _api.DeleteCatalogAsync(type, id), "Đã xóa.");
         return RedirectToAction(nameof(Index), new { type });
     }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MergeArea(int id, int targetId)
+    {
+        var r = await _api.MergeAreaAsync(id, targetId);
+        if (r.Success) TempData["Success"] = $"Đã gộp vào \"{r.Data!.TargetName}\", chuyển {r.Data.MovedHouses} nhà trọ.";
+        else TempData["Error"] = r.Message;
+        return RedirectToAction(nameof(Index), new { type = "areas" });
+    }
 }

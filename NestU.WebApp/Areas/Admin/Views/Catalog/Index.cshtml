@@ -1,23 +1,44 @@
 @model List<NestU.WebApp.Models.Admin.CatalogItemDto>
-@{ string type = ViewBag.Type; var types = NestU.WebApp.Areas.Admin.Controllers.CatalogController.Types; ViewData["Title"] = "Danh mục: " + types[type]; var isUni = type == "universities"; var isAm = type == "amenities"; }
+@{ string type = ViewBag.Type; var types = NestU.WebApp.Areas.Admin.Controllers.CatalogController.Types; ViewData["Title"] = "Danh mục: " + types[type]; var isUni = type == "universities"; var isAm = type == "amenities"; var isArea = type == "areas"; }
 <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">Danh mục</h1>
     <div class="btn-group btn-group-sm">@foreach (var t in types) { <a asp-action="Index" asp-route-type="@t.Key" class="btn btn-outline-dark @(type == t.Key ? "active" : "")">@t.Value</a> }</div></div>
 <div class="row g-3">
     <div class="col-lg-7"><div class="card"><table class="table table-hover mb-0 align-middle">
-        <thead class="table-light"><tr><th>Tên</th>@if (isUni) { <th>Viết tắt</th><th>Tọa độ</th> }@if (isAm) { <th>Icon</th> }<th></th></tr></thead>
+        <thead class="table-light"><tr><th>Tên</th>@if (isUni) { <th>Viết tắt</th><th>Tọa độ</th> }@if (isAm) { <th>Icon</th> }@if (isArea) { <th class="text-end">Nhà trọ</th> }<th></th></tr></thead>
         <tbody>
         @foreach (var x in Model)
         {
             <tr><td>@x.Name</td>
                 @if (isUni) { <td>@x.ShortName</td><td class="small text-secondary">@x.Latitude, @x.Longitude</td> }
                 @if (isAm) { <td><i class="bi @x.Icon"></i> <span class="small text-secondary">@x.Icon</span></td> }
+                @if (isArea) { <td class="text-end">@(x.HouseCount ?? 0)</td> }
                 <td class="text-end text-nowrap">
                     <button class="btn btn-link btn-sm" onclick="fill(@x.Id,'@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(x.Name))','@x.ShortName','@x.Latitude','@x.Longitude','@x.Icon')">Sửa</button>
+                    @if (isArea && Model.Count > 1)
+                    {
+                        <button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#merge@(x.Id)">Gộp vào…</button>
+                    }
                     <form asp-action="Delete" asp-route-type="@type" asp-route-id="@x.Id" method="post" class="d-inline" onsubmit="return confirm('Xóa mục này?')">@Html.AntiForgeryToken()<button class="btn btn-link btn-sm text-danger">Xóa</button></form>
+                    @if (isArea && Model.Count > 1)
+                    {
+                        <form asp-action="MergeArea" asp-route-id="@x.Id" method="post" class="collapse mt-2 text-start" id="merge@(x.Id)"
+                              onsubmit="return confirm('Chuyển @(x.HouseCount ?? 0) nhà trọ sang khu vực đã chọn rồi xóa khu vực này?')">
+                            @Html.AntiForgeryToken()
+                            <div class="input-group input-group-sm">
+                                <select name="targetId" class="form-select" required>
+                                    <option value="">-- Khu vực đích --</option>
+                                    @foreach (var t in Model.Where(t => t.Id != x.Id)) { <option value="@t.Id">@t.Name</option> }
+                                </select>
+                                <button class="btn btn-primary">Gộp</button>
+                            </div>
+                        </form>
+                    }
                 </td></tr>
         }
         @if (Model.Count == 0) { <tr><td colspan="5" class="text-center text-secondary py-4">Trống.</td></tr> }
-        </tbody></table></div></div>
+        </tbody></table></div>
+        @if (isArea) { <div class="form-text small mt-2">Khu vực được tự thêm khi chủ trọ chọn quận chưa có trong danh mục. Nếu có hai khu vực trùng nghĩa, dùng "Gộp vào…" để chuyển nhà trọ sang một khu vực rồi xóa khu vực thừa.</div> }
+    </div>
     <div class="col-lg-5"><div class="card p-3">
         <h2 class="h6" id="fTitle">Thêm @types[type].ToLower()</h2>
         <form asp-action="Save" asp-route-type="@type" method="post">
