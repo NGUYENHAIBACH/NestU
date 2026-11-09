@@ -21,7 +21,10 @@ public class PublicService : IPublicService
         {
             Areas = await _db.Areas.AsNoTracking().OrderBy(a => a.Name)
                 .Select(a => new LookupItemDto { Id = a.Id, Name = a.Name }).ToListAsync(),
-            Amenities = await _db.Amenities.AsNoTracking().OrderBy(a => a.Name)
+            SearchAreas = await _db.Areas.AsNoTracking()
+                .Where(a => a.BoardingHouses.Any(h => h.Status == HouseStatus.Active && !h.IsHidden)).OrderBy(a => a.Name)
+                .Select(a => new LookupItemDto { Id = a.Id, Name = a.Name }).ToListAsync(),
+            Amenities =await _db.Amenities.AsNoTracking().OrderBy(a => a.Name)
                 .Select(a => new LookupItemDto { Id = a.Id, Name = a.Name }).ToListAsync(),
             AssetTypes = await _db.AssetTypes.AsNoTracking().OrderBy(a => a.Name)
                 .Select(a => new LookupItemDto { Id = a.Id, Name = a.Name }).ToListAsync(),

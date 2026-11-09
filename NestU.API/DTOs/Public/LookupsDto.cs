@@ -16,6 +16,8 @@ public class UniversityDto : LookupItemDto
 public class LookupsDto
 {
     public List<LookupItemDto> Areas { get; set; } = new();
+    /// <summary>Chỉ khu vực đang có nhà trọ Active và không bị ẩn — dùng cho bộ lọc Tìm phòng.</summary>
+    public List<LookupItemDto> SearchAreas { get; set; } = new();
     public List<LookupItemDto> Amenities { get; set; } = new();
     public List<LookupItemDto> AssetTypes { get; set; } = new();
     public List<UniversityDto> Universities { get; set; } = new();
