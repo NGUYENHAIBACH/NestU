@@ -20,7 +20,7 @@ public class RoomsController : BaseController
     public async Task<IActionResult> Index(RoomSearchModel search)
     {
         var lookups = await _public.LookupsAsync();
-        ViewBag.Areas = new SelectList(lookups.Data?.Areas ?? new(), "Id", "Name", search.AreaId);
+        ViewBag.Areas = new SelectList(lookups.Data?.SearchAreas ?? new(), "Id", "Name", search.AreaId);
         var result = await _rooms.SearchAsync(search);
         if (!result.Success) TempData["Error"] = result.Message;
         ViewBag.Total = result.Data?.Count ?? 0;

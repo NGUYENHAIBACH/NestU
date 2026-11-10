@@ -16,6 +16,7 @@ public class UniversityDto : LookupItemDto
 public class LookupsDto
 {
     public List<LookupItemDto> Areas { get; set; } = new();
+    public List<LookupItemDto> SearchAreas { get; set; } = new();
     public List<LookupItemDto> Amenities { get; set; } = new();
     public List<LookupItemDto> AssetTypes { get; set; } = new();
     public List<UniversityDto> Universities { get; set; } = new();
