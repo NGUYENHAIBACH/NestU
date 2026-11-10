@@ -45,6 +45,8 @@ public class AuthService : IAuthService
                 throw ApiException.BadRequest("Vui lòng chọn trường đại học hợp lệ.");
         }
 
+        await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, userId: null);
+
         await using var tx = await _db.Database.BeginTransactionAsync();
 
         var user = new ApplicationUser
