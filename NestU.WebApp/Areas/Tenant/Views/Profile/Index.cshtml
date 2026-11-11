@@ -14,7 +14,15 @@
         <div class="form-check mb-3"><input asp-for="IsStudent" class="form-check-input" /><label asp-for="IsStudent" class="form-check-label"></label></div>
         <div class="row" id="studentFields">
             <div class="col-md-6 mb-3"><label asp-for="StudentCode" class="form-label"></label><input asp-for="StudentCode" class="form-control" /><span asp-validation-for="StudentCode" class="text-danger small"></span></div>
-            <div class="col-md-6 mb-3"><label asp-for="UniversityId" class="form-label"></label><select asp-for="UniversityId" asp-items="ViewBag.Universities" class="form-select"><option value="">-- Chọn trường --</option></select><span asp-validation-for="UniversityId" class="text-danger small"></span></div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="UniversityName" class="form-label"></label>
+                <input asp-for="UniversityName" class="form-control" list="universityList" autocomplete="off" placeholder="Chọn trong danh sách hoặc nhập tên trường" />
+                <datalist id="universityList">
+                    @foreach (var u in (IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>?)ViewBag.Universities ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>()) { <option value="@u.Text"></option> }
+                </datalist>
+                <div class="form-text">Chưa có trường của bạn? Nhập tên đầy đủ, hệ thống sẽ thêm trường mới.</div>
+                <span asp-validation-for="UniversityName" class="text-danger small"></span>
+            </div>
         </div>
         <button class="btn btn-primary">Lưu thay đổi</button>
     </form>

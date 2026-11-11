@@ -68,7 +68,8 @@ public class AccountController : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterModel model)
     {
-        if (model.Role != "Tenant") { model.IsStudent = false; model.StudentCode = null; model.UniversityId = null; }
+        if (model.Role != "Tenant") { model.IsStudent = false; model.StudentCode = null; model.UniversityId = null; model.UniversityName = null; }
+        model.UniversityId = null; // trường gửi theo tên (chọn gợi ý hoặc nhập tay), API tự khớp trường có sẵn hoặc tạo mới
         if (!ModelState.IsValid) { await LoadUniversities(); return View(model); }
 
         var result = await _auth.RegisterAsync(model);

@@ -27,7 +27,8 @@ public class ProfileController : BaseController
     public async Task<IActionResult> Index(TenantProfileDto m)
     {
         if (m.IsStudent && string.IsNullOrWhiteSpace(m.StudentCode)) ModelState.AddModelError(nameof(m.StudentCode), "Sinh viên phải nhập mã số sinh viên");
-        if (m.IsStudent && m.UniversityId is null) ModelState.AddModelError(nameof(m.UniversityId), "Sinh viên phải chọn trường");
+        if (m.IsStudent && string.IsNullOrWhiteSpace(m.UniversityName)) ModelState.AddModelError(nameof(m.UniversityName), "Sinh viên phải chọn hoặc nhập tên trường");
+        m.UniversityId = null; // gửi theo tên: API khớp trường có sẵn hoặc tạo trường mới
         if (!ModelState.IsValid) { await LoadUniversities(m.UniversityId); return View(m); }
         var r = await _api.UpdateProfileAsync(m);
         if (!r.Success) { r.AddToModelState(ModelState); await LoadUniversities(m.UniversityId); return View(m); }

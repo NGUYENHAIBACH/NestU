@@ -13,7 +13,7 @@ public class TenantProfileDto
     [Display(Name = "Tôi là sinh viên")] public bool IsStudent { get; set; }
     [StringLength(20)] [Display(Name = "Mã số sinh viên")] public string? StudentCode { get; set; }
     [Display(Name = "Trường")] public int? UniversityId { get; set; }
-    public string? UniversityName { get; set; }
+    [StringLength(200, MinimumLength = 3, ErrorMessage = "Tên trường từ 3 đến 200 ký tự")] [Display(Name = "Trường")] public string? UniversityName { get; set; }
 }
 
 public class CreateAppointmentDto : IValidatableObject

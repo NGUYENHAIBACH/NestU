@@ -14,7 +14,7 @@ public class AuthApiClient : ApiClientBase
         => PostAsync<UserDto>("api/auth/register", new
         {
             m.Email, m.Password, m.FullName, m.Phone, m.CitizenId, m.Role,
-            m.IsStudent, m.StudentCode, m.UniversityId
+            m.IsStudent, m.StudentCode, m.UniversityId, m.UniversityName
         });
 
     public Task<ApiResult<UserDto>> MeAsync() => GetAsync<UserDto>("api/auth/me");
