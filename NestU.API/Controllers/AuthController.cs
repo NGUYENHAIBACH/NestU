@@ -52,6 +52,28 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới." });
     }
 
+    /// <summary>Gửi mã OTP về email của tài khoản đang đăng nhập để xác nhận đổi mật khẩu (hiệu lực 5 phút).</summary>
+    [HttpPost("change-password/otp")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SendChangePasswordOtp()
+    {
+        await _auth.SendChangePasswordOtpAsync(User.GetUserId());
+        return Ok(new { message = "Mã OTP đã được gửi đến email của bạn." });
+    }
+
+    /// <summary>Đổi mật khẩu: kiểm tra mật khẩu hiện tại và mã OTP.</summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+    {
+        await _auth.ChangePasswordAsync(User.GetUserId(), dto);
+        return NoContent();
+    }
+
     /// <summary>Thông tin người dùng hiện tại.</summary>
     [HttpGet("me")]
     [Authorize]

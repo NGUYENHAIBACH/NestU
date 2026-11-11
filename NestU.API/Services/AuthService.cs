@@ -216,6 +216,51 @@ public class AuthService : IAuthService
         _cache.Remove(cacheKey);
     }
 
+    // ----- Đổi mật khẩu trong trang hồ sơ (đã đăng nhập, xác nhận bằng OTP gửi về email) -----
+    public async Task SendChangePasswordOtpAsync(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId) ?? throw ApiException.NotFound("Không tìm thấy người dùng.");
+        if (user.IsLocked) throw ApiException.Forbidden("Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
+
+        var cooldownKey = $"chpwd_otp_cooldown_{userId}";
+        if (_cache.TryGetValue(cooldownKey, out _))
+            throw ApiException.BadRequest("Bạn vừa yêu cầu mã OTP. Vui lòng đợi 1 phút rồi thử lại.");
+        _cache.Set(cooldownKey, true, TimeSpan.FromMinutes(1));
+
+        var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6");
+        _cache.Set($"chpwd_otp_{userId}", new OtpEntry(otp), TimeSpan.FromMinutes(5));
+        await _email.SendChangePasswordOtpAsync(user.Email!, otp);
+    }
+
+    public async Task ChangePasswordAsync(string userId, ChangePasswordDto dto)
+    {
+        var user = await _userManager.FindByIdAsync(userId) ?? throw ApiException.NotFound("Không tìm thấy người dùng.");
+        if (user.IsLocked) throw ApiException.Forbidden("Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
+
+        var cacheKey = $"chpwd_otp_{userId}";
+        if (!_cache.TryGetValue<OtpEntry>(cacheKey, out var entry) || entry is null)
+            throw ApiException.BadRequest("Mã OTP không chính xác hoặc đã hết hạn (mã chỉ có hiệu lực trong 5 phút).");
+        if (entry.Code != dto.Otp.Trim())
+        {
+            if (entry.RegisterFailure() >= MaxOtpAttempts)
+            {
+                _cache.Remove(cacheKey);
+                throw ApiException.BadRequest($"Bạn đã nhập sai mã OTP {MaxOtpAttempts} lần. Mã đã bị hủy, vui lòng yêu cầu mã mới.");
+            }
+            throw ApiException.BadRequest("Mã OTP không chính xác hoặc đã hết hạn (mã chỉ có hiệu lực trong 5 phút).");
+        }
+        if (!await _userManager.CheckPasswordAsync(user, dto.CurrentPassword))
+            throw ApiException.BadRequest("Mật khẩu hiện tại không đúng.");
+        if (dto.NewPassword == dto.CurrentPassword)
+            throw ApiException.BadRequest("Mật khẩu mới phải khác mật khẩu hiện tại.");
+
+        var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+        if (!result.Succeeded)
+            throw ApiException.BadRequest(string.Join(" ", result.Errors.Select(e => TranslateIdentityError(e))));
+
+        _cache.Remove(cacheKey);
+    }
+
     private static string TranslateIdentityError(IdentityError e) => e.Code switch
     {
         "PasswordTooShort" => "Mật khẩu quá ngắn.",
@@ -225,6 +270,7 @@ public class AuthService : IAuthService
         "PasswordRequiresLower" => "Mật khẩu cần ít nhất một chữ thường.",
         "DuplicateUserName" or "DuplicateEmail" => "Email đã được đăng ký.",
         "InvalidEmail" => "Email không hợp lệ.",
+        "PasswordMismatch" => "Mật khẩu hiện tại không đúng.",
         _ => e.Description
     };
 }

@@ -15,7 +15,15 @@ public class EmailService : IEmailService
         _logger = logger;
     }
 
-    public async Task SendPasswordResetOtpAsync(string toEmail, string otp)
+    public Task SendPasswordResetOtpAsync(string toEmail, string otp)
+        => SendOtpAsync(toEmail, otp, "[NestU OTP RESET PASSWORD]", $"[NestU] Mã OTP đặt lại mật khẩu: {otp}",
+            "Yêu cầu đặt lại mật khẩu", "Hệ thống NestU nhận được yêu cầu đặt lại mật khẩu cho tài khoản");
+
+    public Task SendChangePasswordOtpAsync(string toEmail, string otp)
+        => SendOtpAsync(toEmail, otp, "[NestU OTP CHANGE PASSWORD]", $"[NestU] Mã OTP xác nhận đổi mật khẩu: {otp}",
+            "Xác nhận đổi mật khẩu", "Bạn vừa yêu cầu đổi mật khẩu trong trang hồ sơ của tài khoản");
+
+    private async Task SendOtpAsync(string toEmail, string otp, string logTitle, string subject, string heading, string intro)
     {
         var host = _config["Smtp:Host"] ?? "smtp.gmail.com";
         var port = _config.GetValue<int>("Smtp:Port", 587);
@@ -34,7 +42,7 @@ public class EmailService : IEmailService
 
         // Luôn ghi log OTP ở môi trường phát triển để dev/test thuận tiện ngay cả khi chưa cấu hình SMTP
         _logger.LogInformation("==================================================");
-        _logger.LogInformation(" [NestU OTP RESET PASSWORD]");
+        _logger.LogInformation(" {Title}", logTitle);
         _logger.LogInformation(" Người nhận : {Email}", toEmail);
         _logger.LogInformation(" Mã OTP     : {Otp} (Hiệu lực trong 5 phút)", otp);
         _logger.LogInformation("==================================================");
@@ -58,13 +66,13 @@ public class EmailService : IEmailService
             var mail = new MailMessage
             {
                 From = new MailAddress(senderEmail, senderName),
-                Subject = $"[NestU] Mã OTP đặt lại mật khẩu: {otp}",
+                Subject = subject,
                 IsBodyHtml = true,
                 Body = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 8px;"">
-    <h2 style=""color: #0d6efd; margin-top: 0;"">Yêu cầu đặt lại mật khẩu</h2>
+    <h2 style=""color: #0d6efd; margin-top: 0;"">{heading}</h2>
     <p>Xin chào,</p>
-    <p>Hệ thống NestU nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>{toEmail}</strong>.</p>
+    <p>{intro} <strong>{toEmail}</strong>.</p>
     <p>Mã xác thực (OTP) của bạn là:</p>
     <div style=""text-align: center; margin: 24px 0;"">
         <span style=""display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #212529; background: #f1f3f5; padding: 12px 24px; border-radius: 6px; border: 1px dashed #adb5bd;"">{otp}</span>
