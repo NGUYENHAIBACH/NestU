@@ -24,4 +24,9 @@ public class AuthApiClient : ApiClientBase
 
     public Task<ApiResult> ResetPasswordAsync(ResetPasswordModel m)
         => PostAsync("api/auth/reset-password", new { m.Email, m.Otp, m.NewPassword });
+
+    public Task<ApiResult> SendChangePasswordOtpAsync() => PostAsync("api/auth/change-password/otp");
+
+    public Task<ApiResult> ChangePasswordAsync(ChangePasswordModel m)
+        => PostAsync("api/auth/change-password", new { m.CurrentPassword, m.Otp, m.NewPassword });
 }
