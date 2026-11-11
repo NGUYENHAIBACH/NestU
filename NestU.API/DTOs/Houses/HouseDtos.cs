@@ -114,8 +114,11 @@ public class CertificateDto
 
 public class CreateCertificateDto
 {
-    [Required(ErrorMessage = "Số giấy chứng nhận là bắt buộc")] [StringLength(50)]
+    [Required(ErrorMessage = "Số giấy chứng nhận là bắt buộc")]
+    [StringLength(50, MinimumLength = 3, ErrorMessage = "Số giấy chứng nhận từ 3 đến 50 ký tự")]
+    [RegularExpression(CertificateNoPattern, ErrorMessage = "Số giấy chứng nhận chỉ gồm chữ, số và các ký tự / - . (khoảng trắng), phải có ít nhất một chữ số")]
     public string CertificateNo { get; set; } = string.Empty;
+    public const string CertificateNoPattern = @"^(?=.*\d)[0-9A-Za-zÀ-ỹĐđ][0-9A-Za-zÀ-ỹĐđ/.\- ]*$";
     [Required(ErrorMessage = "Vui lòng chọn file giấy chứng nhận")]
     public IFormFile File { get; set; } = null!;
 }

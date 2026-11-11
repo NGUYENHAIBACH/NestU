@@ -185,8 +185,16 @@ public class HouseService : IHouseService
         if (await _db.FireSafetyCertificates.AnyAsync(c => c.BoardingHouseId == houseId && c.Status == CertificateStatus.Pending))
             throw ApiException.Conflict("Đang có giấy PCCC chờ duyệt, vui lòng đợi kết quả.");
 
-        var url = await _files.SaveAsync(dto.File, "certificates");
-        var cert = new FireSafetyCertificate { BoardingHouseId = houseId, CertificateNo = dto.CertificateNo.Trim(), FileUrl = url };
+        var certNo = System.Text.RegularExpressions.Regex.Replace(dto.CertificateNo.Trim(), @"\s+", " ");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(certNo, CreateCertificateDto.CertificateNoPattern) || certNo.Length is < 3 or > 50)
+            throw ApiException.BadRequest("Số giấy chứng nhận PCCC không hợp lệ.");
+        // Một số giấy chỉ dùng cho một nhà trọ (giấy đã bị từ chối thì không tính)
+        if (await _db.FireSafetyCertificates.AnyAsync(c => c.CertificateNo == certNo && c.BoardingHouseId != houseId && c.Status != CertificateStatus.Rejected))
+            throw ApiException.Conflict("Số giấy chứng nhận PCCC này đã được nộp cho một nhà trọ khác.");
+        if (dto.File is null) throw ApiException.BadRequest("Vui lòng chọn file giấy chứng nhận.");
+
+        var url = await _files.SaveAsync(dto.File, "certificates", new[] { ".jpg", ".jpeg", ".png", ".pdf" });
+        var cert = new FireSafetyCertificate { BoardingHouseId = houseId, CertificateNo = certNo, FileUrl = url };
         _db.FireSafetyCertificates.Add(cert);
         if (house.Status == HouseStatus.Rejected) house.Status = HouseStatus.Pending; // nộp lại sau khi bị từ chối
         await _db.SaveChangesAsync();
