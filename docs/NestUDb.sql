@@ -10,6 +10,10 @@ IF DB_ID(N'NestUDb') IS NULL CREATE DATABASE NestUDb;
 GO
 USE NestUDb;
 GO
+-- Cần cho filtered index khi chạy bằng sqlcmd (SSMS đã bật sẵn)
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 
 -- ===================== ASP.NET Core Identity =====================
 CREATE TABLE AspNetRoles (
@@ -266,12 +270,15 @@ CREATE TABLE Contracts (
     MonthlyRent     decimal(18,2) NOT NULL,
     DepositAmount   decimal(18,2) NOT NULL,
     DepositPaidAt   datetime2 NULL,
+    InitialElectricIndex int NOT NULL DEFAULT 0,      -- chỉ số điện lúc nhận phòng
+    InitialWaterIndex    int NOT NULL DEFAULT 0,      -- chỉ số nước lúc nhận phòng
     Status          nvarchar(30) NOT NULL,            -- Active | Terminated (hết hạn tính khi đọc)
     TerminatedAt    datetime2 NULL,
     CreatedAt       datetime2 NOT NULL,
     CONSTRAINT CK_Contract_Dates       CHECK ([EndDate] > [StartDate]),
     CONSTRAINT CK_Contract_MonthlyRent CHECK ([MonthlyRent] > 0),
-    CONSTRAINT CK_Contract_Deposit     CHECK ([DepositAmount] >= 0)
+    CONSTRAINT CK_Contract_Deposit     CHECK ([DepositAmount] >= 0),
+    CONSTRAINT CK_Contract_InitialReadings CHECK ([InitialElectricIndex] >= 0 AND [InitialWaterIndex] >= 0)
 );
 -- Mỗi người thuê một hợp đồng Active; mỗi phòng một hợp đồng Active
 CREATE UNIQUE INDEX UX_Contract_OneActivePerTenant ON Contracts(TenantId) WHERE [Status] = 'Active';
@@ -333,6 +340,7 @@ CREATE TABLE ContractChangeRequests (
     CreatedAt    datetime2 NOT NULL,
     DecidedAt    datetime2 NULL
 );
+CREATE UNIQUE INDEX UX_ContractChangeRequest_OnePendingPerContract ON ContractChangeRequests(ContractId) WHERE [Status] = 'Pending';
 GO
 
 -- ===================== Điện nước, hóa đơn, thanh toán =====================
@@ -423,21 +431,9 @@ CREATE TABLE Reports (
     ResolvedAt  datetime2 NULL
 );
 CREATE INDEX IX_Reports_Status ON Reports(Status);
+CREATE UNIQUE INDEX UX_Report_OneOpenPerReporterAndTarget ON Reports(ReporterId, TargetType, TargetId) WHERE [Status] = 'Open';
 GO
 
--- ===================== Dữ liệu danh mục mẫu (tài khoản do API seed, vì cần băm mật khẩu) =====================
-INSERT INTO AspNetRoles (Id, Name, NormalizedName, ConcurrencyStamp) VALUES
- (NEWID(), N'Admin',    N'ADMIN',    NEWID()),
- (NEWID(), N'Landlord', N'LANDLORD', NEWID()),
- (NEWID(), N'Tenant',   N'TENANT',   NEWID());
-
-INSERT INTO Areas (Name) VALUES (N'Quận 1'),(N'Quận 3'),(N'Quận 7'),(N'Quận 10'),(N'Bình Thạnh'),(N'Thủ Đức'),(N'Gò Vấp'),(N'Tân Bình');
-INSERT INTO Amenities (Name, Icon) VALUES (N'Wifi','bi-wifi'),(N'Máy lạnh','bi-snow'),(N'WC riêng','bi-droplet'),(N'Chỗ để xe','bi-bicycle'),(N'Gác lửng','bi-layers'),(N'Cửa sổ','bi-brightness-high'),(N'Bếp riêng','bi-fire'),(N'Giờ giấc tự do','bi-unlock');
-INSERT INTO AssetTypes (Name) VALUES (N'Giường'),(N'Nệm'),(N'Tủ quần áo'),(N'Bàn học'),(N'Ghế'),(N'Máy lạnh'),(N'Quạt'),(N'Bình nóng lạnh'),(N'Kệ bếp'),(N'Đèn');
-INSERT INTO Universities (Name, ShortName, Latitude, Longitude) VALUES
- (N'Đại học FPT TP.HCM','FPTU',10.8411,106.8098),
- (N'Đại học Bách Khoa TP.HCM','HCMUT',10.7725,106.6580),
- (N'Đại học Khoa học Tự nhiên','HCMUS',10.7628,106.6824),
- (N'Đại học Kinh tế TP.HCM','UEH',10.7830,106.6946),
- (N'Đại học Sư phạm Kỹ thuật','HCMUTE',10.8506,106.7719);
-GO
+-- ===================== Dữ liệu mẫu =====================
+-- Không INSERT ở đây: NestU.API tự seed toàn bộ dữ liệu mẫu (role, tài khoản, danh mục, nhà trọ, phòng,
+-- hợp đồng, hóa đơn 12 tháng) ở lần chạy đầu tiên, vì mật khẩu phải được băm bằng ASP.NET Core Identity.
