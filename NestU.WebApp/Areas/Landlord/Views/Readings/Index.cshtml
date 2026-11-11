@@ -4,13 +4,17 @@
 <div class="row g-3">
     <div class="col-lg-4"><div class="card p-3">
         <h2 class="h6">Ghi chỉ số tháng</h2>
-        <form asp-action="Add" method="post">
+        <form asp-action="Add" method="post" id="readingForm" novalidate>
             @Html.AntiForgeryToken()
-            <div class="mb-2"><label class="form-label small">Hợp đồng / phòng</label><select name="ContractId" asp-items="ViewBag.Contracts" class="form-select form-select-sm" required><option value="">-- Chọn --</option></select></div>
-            <div class="row g-2 mb-2"><div class="col"><label class="form-label small">Tháng</label><input name="Month" type="number" min="1" max="12" value="@DateTime.Today.Month" class="form-control form-control-sm" /></div><div class="col"><label class="form-label small">Năm</label><input name="Year" type="number" value="@DateTime.Today.Year" class="form-control form-control-sm" /></div></div>
-            <div class="row g-2 mb-3"><div class="col"><label class="form-label small">Điện (kWh)</label><input name="ElectricIndex" type="number" min="0" class="form-control form-control-sm" required /></div><div class="col"><label class="form-label small">Nước (m³)</label><input name="WaterIndex" type="number" min="0" class="form-control form-control-sm" required /></div></div>
-            <button class="btn btn-primary btn-sm w-100">Ghi chỉ số</button>
-            <div class="form-text">Chỉ số phải ≥ tháng trước. Mỗi hợp đồng ghi một lần mỗi tháng.</div>
+            <div class="mb-2"><label class="form-label small">Hợp đồng / phòng</label><select name="ContractId" id="rdContract" asp-items="ViewBag.Contracts" class="form-select form-select-sm" required><option value="">-- Chọn --</option></select></div>
+            <div class="row g-2 mb-2"><div class="col"><label class="form-label small">Tháng</label><input name="Month" id="rdMonth" type="number" min="1" max="12" value="@DateTime.Today.Month" class="form-control form-control-sm" required /></div><div class="col"><label class="form-label small">Năm</label><input name="Year" id="rdYear" type="number" min="2020" max="2100" value="@DateTime.Today.Year" class="form-control form-control-sm" required /></div></div>
+            <div id="rdBounds" class="alert alert-light border small py-2 mb-2" style="display:none"></div>
+            <div class="row g-2 mb-3">
+                <div class="col"><label class="form-label small">Điện (kWh)</label><input name="ElectricIndex" id="rdElectric" type="number" min="0" class="form-control form-control-sm" required /><div class="invalid-feedback" id="rdElectricErr"></div></div>
+                <div class="col"><label class="form-label small">Nước (m³)</label><input name="WaterIndex" id="rdWater" type="number" min="0" class="form-control form-control-sm" required /><div class="invalid-feedback" id="rdWaterErr"></div></div>
+            </div>
+            <button class="btn btn-primary btn-sm w-100" id="rdSubmit">Ghi chỉ số</button>
+            <div class="form-text">Chỉ số mới phải lớn hơn hoặc bằng chỉ số kỳ trước (tháng đầu so với chỉ số lúc nhận phòng). Mỗi hợp đồng ghi một lần mỗi tháng.</div>
         </form>
     </div></div>
     <div class="col-lg-8"><div class="card"><table class="table table-hover mb-0 align-middle small">
@@ -26,3 +30,57 @@
         @if (Model.Count == 0) { <tr><td colspan="6" class="text-center text-secondary py-4">Chưa có chỉ số nào.</td></tr> }
         </tbody></table></div></div>
 </div>
+@section Scripts {
+<script>
+    (function () {
+        const $ = id => document.getElementById(id);
+        const form = $('readingForm'), contract = $('rdContract'), month = $('rdMonth'), year = $('rdYear');
+        const elec = $('rdElectric'), water = $('rdWater'), box = $('rdBounds'), submit = $('rdSubmit');
+        let bounds = null, seq = 0;
+
+        async function loadBounds() {
+            bounds = null; box.style.display = 'none'; submit.disabled = false;
+            if (!contract.value || !month.value || !year.value) { validate(); return; }
+            const my = ++seq;
+            try {
+                const res = await fetch(`@Url.Action("Bounds")?contractId=${contract.value}&month=${month.value}&year=${year.value}`);
+                const json = await res.json();
+                if (my !== seq) return;
+                if (!json.success) { box.className = 'alert alert-warning small py-2 mb-2'; box.textContent = json.message || 'Không lấy được chỉ số kỳ trước.'; box.style.display = ''; return; }
+                bounds = json.data;
+                let html = `Chỉ số ${bounds.previousLabel}: điện <strong>${bounds.previousElectricIndex}</strong> · nước <strong>${bounds.previousWaterIndex}</strong>`;
+                if (bounds.nextLabel) html += `<br/>Chỉ số ${bounds.nextLabel}: điện <strong>${bounds.nextElectricIndex}</strong> · nước <strong>${bounds.nextWaterIndex}</strong>`;
+                if (bounds.alreadyRecorded) { html += '<br/><span class="text-danger">Tháng này đã ghi chỉ số.</span>'; submit.disabled = true; }
+                box.className = 'alert alert-light border small py-2 mb-2'; box.innerHTML = html; box.style.display = '';
+                elec.min = bounds.previousElectricIndex; water.min = bounds.previousWaterIndex;
+            } catch { /* lỗi mạng: để máy chủ kiểm tra khi gửi */ }
+            validate();
+        }
+
+        function check(input, errEl, prev, next, label) {
+            let msg = '';
+            if (input.value !== '') {
+                const v = Number(input.value);
+                if (!Number.isInteger(v) || v < 0) msg = `Chỉ số ${label} không hợp lệ.`;
+                else if (prev !== undefined && v < prev) msg = `Chỉ số ${label} phải lớn hơn hoặc bằng chỉ số ${bounds.previousLabel} (${prev}).`;
+                else if (next !== null && next !== undefined && v > next) msg = `Chỉ số ${label} không được lớn hơn chỉ số ${bounds.nextLabel} (${next}).`;
+            }
+            input.setCustomValidity(msg); errEl.textContent = msg; input.classList.toggle('is-invalid', !!msg);
+            return !msg;
+        }
+
+        function validate() {
+            const okE = check(elec, $('rdElectricErr'), bounds?.previousElectricIndex, bounds?.nextElectricIndex, 'điện');
+            const okW = check(water, $('rdWaterErr'), bounds?.previousWaterIndex, bounds?.nextWaterIndex, 'nước');
+            return okE && okW;
+        }
+
+        [contract, month, year].forEach(el => el.addEventListener('change', loadBounds));
+        [elec, water].forEach(el => el.addEventListener('input', validate));
+        form.addEventListener('submit', e => {
+            if (!validate() || !form.checkValidity() || submit.disabled) { e.preventDefault(); form.reportValidity(); }
+        });
+        loadBounds();
+    })();
+</script>
+}

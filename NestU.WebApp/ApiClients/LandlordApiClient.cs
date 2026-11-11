@@ -112,6 +112,8 @@ public class LandlordApiClient : ApiClientBase
 
     // Điện nước, hóa đơn
     public Task<ApiResult<List<UtilityReadingDto>>> ReadingsAsync(int? houseId = null) => GetAsync<List<UtilityReadingDto>>("api/landlord/readings" + (houseId is null ? "" : $"?houseId={houseId}"));
+    public Task<ApiResult<ReadingBoundsDto>> ReadingBoundsAsync(int contractId, int month, int year)
+        => GetAsync<ReadingBoundsDto>($"api/landlord/readings/bounds?contractId={contractId}&month={month}&year={year}");
     public Task<ApiResult<UtilityReadingDto>> AddReadingAsync(UtilityReadingDto m) => PostAsync<UtilityReadingDto>("api/landlord/readings", new { m.ContractId, m.Month, m.Year, m.ElectricIndex, m.WaterIndex });
     public Task<ApiResult<List<InvoiceDto>>> InvoicesAsync(string? status = null, int? houseId = null)
     {

@@ -18,6 +18,21 @@ public class UtilityReadingDto
     public bool HasInvoice { get; set; }
 }
 
+/// <summary>Giới hạn chỉ số cho một tháng (cùng tên với ReadingBoundsDto bên API).</summary>
+public class ReadingBoundsDto
+{
+    public int ContractId { get; set; }
+    public int Month { get; set; }
+    public int Year { get; set; }
+    public int PreviousElectricIndex { get; set; }
+    public int PreviousWaterIndex { get; set; }
+    public string PreviousLabel { get; set; } = string.Empty;
+    public int? NextElectricIndex { get; set; }
+    public int? NextWaterIndex { get; set; }
+    public string? NextLabel { get; set; }
+    public bool AlreadyRecorded { get; set; }
+}
+
 public class GenerateInvoiceDto
 {
     [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn hợp đồng")] [Display(Name = "Hợp đồng / phòng")] public int ContractId { get; set; }
