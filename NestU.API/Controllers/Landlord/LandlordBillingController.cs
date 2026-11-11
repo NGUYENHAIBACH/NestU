@@ -28,6 +28,11 @@ public class LandlordBillingController : ControllerBase
     public async Task<ActionResult<List<UtilityReadingDto>>> Readings([FromQuery] int? contractId, [FromQuery] int? houseId)
         => Ok(await _billing.GetReadingsAsync(Uid, contractId, houseId));
 
+    /// <summary>Chỉ số kỳ trước/kỳ sau của một tháng để kiểm tra trước khi ghi.</summary>
+    [HttpGet("readings/bounds")]
+    public async Task<ActionResult<ReadingBoundsDto>> ReadingBounds([FromQuery] int contractId, [FromQuery] int month, [FromQuery] int year)
+        => Ok(await _billing.GetReadingBoundsAsync(Uid, contractId, month, year));
+
     /// <summary>Ghi chỉ số tháng; 400 nếu nhỏ hơn tháng trước, 409 nếu đã ghi.</summary>
     [HttpPost("readings")]
     public async Task<ActionResult<UtilityReadingDto>> AddReading(UtilityReadingDto dto) => StatusCode(StatusCodes.Status201Created, await _billing.AddReadingAsync(Uid, dto));

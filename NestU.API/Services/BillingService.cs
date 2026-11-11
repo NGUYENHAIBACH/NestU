@@ -57,6 +57,32 @@ public class BillingService : IBillingService
         }).ToList();
     }
 
+    /// <summary>Chỉ số kỳ liền trước (hoặc chỉ số đầu của hợp đồng) và kỳ liền sau, để form ghi chỉ số kiểm tra trước khi gửi.</summary>
+    public async Task<ReadingBoundsDto> GetReadingBoundsAsync(string landlordId, int contractId, int month, int year)
+    {
+        if (month is < 1 or > 12 || year is < 2020 or > 2100) throw ApiException.BadRequest("Tháng/năm không hợp lệ.");
+        var c = await _rentals.GetOwnedContractAsync(landlordId, Roles.Landlord, contractId);
+        return await ComputeReadingBoundsAsync(c, month, year);
+    }
+
+    private async Task<ReadingBoundsDto> ComputeReadingBoundsAsync(Contract c, int month, int year)
+    {
+        var prev = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == c.Id && (r.Year < year || (r.Year == year && r.Month < month)))
+            .OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).FirstOrDefaultAsync();
+        var next = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == c.Id && (r.Year > year || (r.Year == year && r.Month > month)))
+            .OrderBy(r => r.Year).ThenBy(r => r.Month).FirstOrDefaultAsync();
+        return new ReadingBoundsDto
+        {
+            ContractId = c.Id, Month = month, Year = year,
+            PreviousElectricIndex = prev?.ElectricIndex ?? c.InitialElectricIndex,
+            PreviousWaterIndex = prev?.WaterIndex ?? c.InitialWaterIndex,
+            PreviousLabel = prev is null ? "đầu kỳ hợp đồng" : $"kỳ trước ({prev.Month}/{prev.Year})",
+            NextElectricIndex = next?.ElectricIndex, NextWaterIndex = next?.WaterIndex,
+            NextLabel = next is null ? null : $"kỳ sau ({next.Month}/{next.Year})",
+            AlreadyRecorded = await _db.UtilityReadings.AnyAsync(r => r.ContractId == c.Id && r.Year == year && r.Month == month)
+        };
+    }
+
     public async Task<UtilityReadingDto> AddReadingAsync(string landlordId, UtilityReadingDto dto)
     {
         var c = await _rentals.GetOwnedContractAsync(landlordId, Roles.Landlord, dto.ContractId);
@@ -72,24 +98,21 @@ public class BillingService : IBillingService
         if (await _db.Invoices.AnyAsync(i => i.ContractId == dto.ContractId && (i.Year > dto.Year || (i.Year == dto.Year && i.Month > dto.Month))))
             throw new BusinessRuleException($"Không thể ghi chỉ số tháng {dto.Month}/{dto.Year} vì đã tồn tại hóa đơn ở các kỳ tương lai.");
 
-        var prev = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year < dto.Year || (r.Year == dto.Year && r.Month < dto.Month)))
-            .OrderByDescending(r => r.Year).ThenByDescending(r => r.Month).FirstOrDefaultAsync();
-        var baseElectric = prev?.ElectricIndex ?? c.InitialElectricIndex;
-        var baseWater = prev?.WaterIndex ?? c.InitialWaterIndex;
+        var b = await ComputeReadingBoundsAsync(c, dto.Month, dto.Year);
+        var baseElectric = b.PreviousElectricIndex;
+        var baseWater = b.PreviousWaterIndex;
 
         if (dto.ElectricIndex < baseElectric)
-            throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được nhỏ hơn chỉ số kỳ liền trước ({baseElectric}).");
+            throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được nhỏ hơn chỉ số {b.PreviousLabel} ({baseElectric}).");
         if (dto.WaterIndex < baseWater)
-            throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được nhỏ hơn chỉ số kỳ liền trước ({baseWater}).");
+            throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được nhỏ hơn chỉ số {b.PreviousLabel} ({baseWater}).");
 
-        var next = await _db.UtilityReadings.AsNoTracking().Where(r => r.ContractId == dto.ContractId && (r.Year > dto.Year || (r.Year == dto.Year && r.Month > dto.Month)))
-            .OrderBy(r => r.Year).ThenBy(r => r.Month).FirstOrDefaultAsync();
-        if (next is not null)
+        if (b.NextElectricIndex is not null && b.NextWaterIndex is not null)
         {
-            if (dto.ElectricIndex > next.ElectricIndex)
-                throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được lớn hơn chỉ số kỳ sau ({next.Month}/{next.Year}: {next.ElectricIndex}).");
-            if (dto.WaterIndex > next.WaterIndex)
-                throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được lớn hơn chỉ số kỳ sau ({next.Month}/{next.Year}: {next.WaterIndex}).");
+            if (dto.ElectricIndex > b.NextElectricIndex)
+                throw new BusinessRuleException($"Chỉ số điện mới ({dto.ElectricIndex}) không được lớn hơn chỉ số {b.NextLabel} ({b.NextElectricIndex}).");
+            if (dto.WaterIndex > b.NextWaterIndex)
+                throw new BusinessRuleException($"Chỉ số nước mới ({dto.WaterIndex}) không được lớn hơn chỉ số {b.NextLabel} ({b.NextWaterIndex}).");
         }
 
         var r = new UtilityReading { ContractId = dto.ContractId, Month = dto.Month, Year = dto.Year, ElectricIndex = dto.ElectricIndex, WaterIndex = dto.WaterIndex };

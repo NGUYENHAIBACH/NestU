@@ -6,6 +6,7 @@ public interface IBillingService
 {
     Task<List<UtilityReadingDto>> GetReadingsAsync(string landlordId, int? contractId, int? houseId);
     Task<UtilityReadingDto> AddReadingAsync(string landlordId, UtilityReadingDto dto);
+    Task<ReadingBoundsDto> GetReadingBoundsAsync(string landlordId, int contractId, int month, int year);
 
     Task<InvoiceDto> GenerateInvoiceAsync(string landlordId, GenerateInvoiceDto dto);
     Task<List<InvoiceDto>> GetLandlordInvoicesAsync(string landlordId, string? status, int? houseId);
