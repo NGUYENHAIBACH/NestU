@@ -34,7 +34,8 @@ public class HouseService : IHouseService
     {
         var p = await _db.LandlordProfiles.Include(x => x.User).FirstOrDefaultAsync(x => x.UserId == landlordId) 
             ?? throw ApiException.NotFound("Chưa có hồ sơ chủ trọ.");
-        p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId; p.Phone = dto.Phone;
+        await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, landlordId);
+        p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId.Trim(); p.Phone = dto.Phone;
         p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
 
         if (p.ApprovalStatus == ApprovalStatus.Rejected)
