@@ -41,12 +41,12 @@ public class RentalService : IRentalService
         if (dto.IsStudent)
         {
             if (string.IsNullOrWhiteSpace(dto.StudentCode)) throw ApiException.BadRequest("Sinh viên phải nhập mã số sinh viên.");
-            if (dto.UniversityId is null || !await _db.Universities.AnyAsync(u => u.Id == dto.UniversityId)) throw ApiException.BadRequest("Vui lòng chọn trường hợp lệ.");
         }
+        var university = dto.IsStudent ? await Universities.ResolveAsync(_db, dto.UniversityId, dto.UniversityName) : null;
         await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, tenantId);
         await PhoneNumbers.EnsureNotUsedByOtherAsync(_db, dto.Phone, tenantId);
         p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId.Trim(); p.Phone = dto.Phone;
-        p.IsStudent = dto.IsStudent; p.StudentCode = dto.IsStudent ? dto.StudentCode : null; p.UniversityId = dto.IsStudent ? dto.UniversityId : null;
+        p.IsStudent = dto.IsStudent; p.StudentCode = dto.IsStudent ? dto.StudentCode : null; p.University = university; if (university is null) p.UniversityId = null;
         p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
         await _db.SaveChangesAsync();
     }

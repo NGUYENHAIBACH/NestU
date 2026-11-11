@@ -34,6 +34,9 @@ public class RegisterDto : IValidatableObject
     [StringLength(20)]
     public string? StudentCode { get; set; }
     public int? UniversityId { get; set; }
+    /// <summary>Tên trường nhập tay khi chưa có trong danh sách; dùng khi UniversityId để trống.</summary>
+    [StringLength(200, ErrorMessage = "Tên trường tối đa 200 ký tự")]
+    public string? UniversityName { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
@@ -41,8 +44,8 @@ public class RegisterDto : IValidatableObject
         {
             if (string.IsNullOrWhiteSpace(StudentCode))
                 yield return new ValidationResult("Sinh viên phải nhập mã số sinh viên", new[] { nameof(StudentCode) });
-            if (UniversityId is null)
-                yield return new ValidationResult("Sinh viên phải chọn trường", new[] { nameof(UniversityId) });
+            if (UniversityId is null && string.IsNullOrWhiteSpace(UniversityName))
+                yield return new ValidationResult("Sinh viên phải chọn hoặc nhập tên trường", new[] { nameof(UniversityName) });
         }
     }
 }

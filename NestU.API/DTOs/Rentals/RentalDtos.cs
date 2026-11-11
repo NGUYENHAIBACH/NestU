@@ -13,7 +13,8 @@ public class TenantProfileDto
     public bool IsStudent { get; set; }
     [StringLength(20)] public string? StudentCode { get; set; }
     public int? UniversityId { get; set; }
-    public string? UniversityName { get; set; }
+    /// <summary>Tên trường; nhập tay khi chưa có trong danh sách (dùng khi UniversityId để trống).</summary>
+    [StringLength(200, ErrorMessage = "Tên trường tối đa 200 ký tự")] public string? UniversityName { get; set; }
 }
 
 public class CreateAppointmentDto : IValidatableObject

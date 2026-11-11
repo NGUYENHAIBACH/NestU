@@ -37,12 +37,12 @@ public class AuthService : IAuthService
         if (await _userManager.FindByEmailAsync(dto.Email) is not null)
             throw ApiException.Conflict("Email đã được đăng ký.");
 
+        University? university = null;
         if (dto.Role == Roles.Tenant && dto.IsStudent)
         {
             if (string.IsNullOrWhiteSpace(dto.StudentCode))
                 throw ApiException.BadRequest("Sinh viên phải nhập mã số sinh viên.");
-            if (dto.UniversityId is null || !await _db.Universities.AnyAsync(u => u.Id == dto.UniversityId))
-                throw ApiException.BadRequest("Vui lòng chọn trường đại học hợp lệ.");
+            university = await Universities.ResolveAsync(_db, dto.UniversityId, dto.UniversityName);
         }
 
         await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, userId: null);
@@ -73,7 +73,7 @@ public class AuthService : IAuthService
                 Phone = dto.Phone,
                 IsStudent = dto.IsStudent,
                 StudentCode = dto.IsStudent ? dto.StudentCode?.Trim() : null,
-                UniversityId = dto.IsStudent ? dto.UniversityId : null
+                University = dto.IsStudent ? university : null
             });
         }
         else
