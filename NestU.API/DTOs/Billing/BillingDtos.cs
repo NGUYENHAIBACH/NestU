@@ -81,4 +81,5 @@ public class QrDto
 {
     public string Content { get; set; } = string.Empty;   // chuỗi VietQR hoặc URL ảnh QR
     public string ImageUrl { get; set; } = string.Empty;
+    public string? CheckoutUrl { get; set; }
 }

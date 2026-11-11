@@ -36,7 +36,29 @@ public class HousesController : BaseController
     }
 
     [HttpGet]
-    public async Task<IActionResult> Create() { await LoadAreas(null); return View("Form", new CreateHouseDto()); }
+    public async Task<IActionResult> Create()
+    {
+        await LoadAreas(null);
+        var dto = new CreateHouseDto();
+        var houses = await _api.HousesAsync();
+        var lastWithBank = houses.Data?.FirstOrDefault(h => !string.IsNullOrWhiteSpace(h.BankAccount));
+        if (lastWithBank is not null)
+        {
+            dto.BankCode = lastWithBank.BankCode;
+            dto.BankAccount = lastWithBank.BankAccount;
+            dto.AccountName = lastWithBank.AccountName;
+            ViewBag.PrefilledFromHouse = lastWithBank.Name;
+        }
+        else
+        {
+            var profile = await _api.ProfileAsync();
+            if (!string.IsNullOrWhiteSpace(profile.Data?.FullName))
+            {
+                dto.AccountName = profile.Data.FullName.ToUpper();
+            }
+        }
+        return View("Form", dto);
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateHouseDto m)

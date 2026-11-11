@@ -29,7 +29,20 @@ public class ContractsController : BaseController
         var assets = await _api.ContractAssetsAsync(id);
         ViewBag.Assets = assets.Data ?? new();
         ViewBag.Tab = tab;
+        if (tab == "deposit" && r.Data!.DepositPaidAt == null && r.Data.DepositAmount > 0)
+        {
+            var qr = await _api.DepositQrAsync(id);
+            if (qr.Success) ViewBag.DepositQr = qr.Data;
+        }
         return View(r.Data);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CheckDepositStatus(int id)
+    {
+        var r = await _api.ContractAsync(id);
+        if (!r.Success) return Json(new { success = false });
+        return Json(new { success = true, isPaid = r.Data!.DepositPaidAt != null });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

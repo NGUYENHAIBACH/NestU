@@ -17,14 +17,69 @@
     <div class="col-lg-5">
         @if (Model.Status == "Unpaid")
         {
-            <div class="card p-3 text-center">
-                <h2 class="h6">Chuyển khoản</h2>
-                @if (qr is not null) { <img src="@qr.ImageUrl" alt="VietQR" class="img-fluid rounded mb-2" style="max-width: 280px; margin: 0 auto" /><div class="small text-secondary">Nội dung: <code>@qr.Content</code></div> }
+            <div id="qrPaymentBox" class="card p-3 text-center shadow-sm">
+                <h2 class="h6 mb-2">Chuyển khoản (PayOS / VietQR)</h2>
+                <div id="paymentListeningBadge" class="mb-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-2 px-3 rounded-pill fw-medium shadow-sm">
+                        <span class="spinner-grow spinner-grow-sm text-primary me-2" role="status"></span>
+                        Đang chờ bạn quét mã thanh toán...
+                    </span>
+                </div>
+                @if (qr is not null) 
+                { 
+                    <img src="@qr.ImageUrl" alt="VietQR" class="img-fluid rounded mb-2 shadow-sm border p-2 bg-white" style="max-width: 250px; margin: 0 auto" />
+                    <div class="small text-secondary mb-2">Nội dung: <code>@qr.Content</code></div>
+                    @if (!string.IsNullOrEmpty(qr.CheckoutUrl))
+                    {
+                        <a href="@qr.CheckoutUrl" target="_blank" class="btn btn-outline-primary btn-sm mb-2 w-100">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Mở cổng thanh toán PayOS
+                        </a>
+                    }
+                    <div class="small text-muted mb-2"><i class="bi bi-shield-check text-success"></i> Tự động gạch nợ ngay khi chuyển khoản</div>
+                }
                 else { <div class="small text-secondary">@Model.BankCode @Model.BankAccount<br />@Model.AccountName</div> }
-                <a asp-action="Pay" asp-route-id="@Model.Id" class="btn btn-primary mt-3">Tôi đã chuyển khoản</a>
+                <a asp-action="Pay" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm mt-1">Báo thanh toán thủ công (nếu chuyển ngoài)</a>
+            </div>
+
+            <!-- Card hiển thị hiệu ứng thanh toán thành công -->
+            <div id="paymentSuccessCard" class="card p-4 text-center border-success bg-success-subtle shadow-sm d-none">
+                <div class="display-4 text-success mb-2"><i class="bi bi-check-circle-fill"></i></div>
+                <h5 class="text-success fw-bold mb-1">Thanh toán thành công!</h5>
+                <p class="text-secondary small mb-2">Hệ thống đã nhận được tiền và tự động gạch nợ hóa đơn.</p>
+                <div class="small text-success fw-medium">
+                    <span class="spinner-border spinner-border-sm text-success me-1"></span> Đang cập nhật hóa đơn...
+                </div>
             </div>
         }
         else if (Model.Status == "PendingConfirm") { <div class="alert alert-info">Đang chờ chủ trọ xác nhận thanh toán.</div> }
         else { <div class="alert alert-success">Hóa đơn đã thanh toán.</div> }
     </div>
 </div>
+
+@if (Model.Status == "Unpaid")
+{
+    @section Scripts {
+        <script>
+            // Lắng nghe trạng thái thanh toán từ PayOS Webhook (mỗi 3 giây)
+            const checkTimer = setInterval(async () => {
+                try {
+                    const res = await fetch('@Url.Action("CheckStatus", new { id = Model.Id })');
+                    const data = await res.json();
+                    if (data && data.success && data.isPaid) {
+                        clearInterval(checkTimer);
+                        // Ẩn vùng mã QR
+                        const qrBox = document.getElementById("qrPaymentBox");
+                        if (qrBox) qrBox.classList.add("d-none");
+                        // Hiện thông báo thành công rực rỡ
+                        const successCard = document.getElementById("paymentSuccessCard");
+                        if (successCard) successCard.classList.remove("d-none");
+                        // Tải lại trang sau 1.5 giây
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                } catch {}
+            }, 3000);
+        </script>
+    }
+}

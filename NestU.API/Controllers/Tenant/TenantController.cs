@@ -86,6 +86,10 @@ public class TenantController : ControllerBase
     public async Task<ActionResult<List<ContractChangeRequestDto>>> ContractRequests([FromQuery] string? status)
         => Ok(await _rentals.GetChangeRequestsAsync(Uid, Roles.Tenant, status));
 
+    /// <summary>Mã QR chuyển khoản đặt cọc hợp đồng.</summary>
+    [HttpGet("contracts/{id:int}/deposit-qr")]
+    public async Task<ActionResult<QrDto>> DepositQr(int id) => Ok(await _rentals.GetDepositQrAsync(Uid, id));
+
     // ----- Hóa đơn -----
     [HttpGet("invoices")]
     public async Task<ActionResult<List<InvoiceDto>>> Invoices() => Ok(await _billing.GetTenantInvoicesAsync(Uid));

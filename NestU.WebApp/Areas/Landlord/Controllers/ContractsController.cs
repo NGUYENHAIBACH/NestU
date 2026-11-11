@@ -77,11 +77,25 @@ public class ContractsController : BaseController
         return RedirectToAction(nameof(Details), new { id = m.ContractId, tab = "assets" });
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmDeposit(int id)
+    {
+        var r = await _api.ConfirmDepositAsync(id);
+        if (!r.Success) TempData["Error"] = r.Message;
+        else TempData["Success"] = "Đã xác nhận nhận tiền cọc thành công.";
+        return RedirectToAction(nameof(Details), new { id, tab = "deposit" });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Settle(int id)
     {
         var c = await _api.ContractAsync(id);
         if (!c.Success) return HandleFailure(c, "Index");
+        if (c.Data!.DepositPaidAt == null && c.Data.DepositAmount > 0)
+        {
+            TempData["Error"] = "Hợp đồng chưa được ghi nhận đã nhận tiền cọc. Vui lòng xác nhận đã nhận cọc trước khi quyết toán.";
+            return RedirectToAction(nameof(Details), new { id, tab = "deposit" });
+        }
         var assets = await _api.ContractAssetsAsync(id, "CheckOut");
         ViewBag.Contract = c.Data;
         ViewBag.Damage = (assets.Data ?? new()).Sum(a => a.DeductionAmount);

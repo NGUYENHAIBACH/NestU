@@ -24,6 +24,7 @@ public class TenantApiClient : ApiClientBase
 
     public Task<ApiResult<List<ContractDto>>> ContractsAsync() => GetAsync<List<ContractDto>>("api/tenant/contracts");
     public Task<ApiResult<ContractDto>> ContractAsync(int id) => GetAsync<ContractDto>($"api/tenant/contracts/{id}");
+    public Task<ApiResult<QrDto>> DepositQrAsync(int contractId) => GetAsync<QrDto>($"api/tenant/contracts/{contractId}/deposit-qr");
     public Task<ApiResult<List<ContractAssetDto>>> ContractAssetsAsync(int id, string? stage = null) => GetAsync<List<ContractAssetDto>>($"api/tenant/contracts/{id}/assets" + (stage is null ? "" : $"?stage={stage}"));
     public Task<ApiResult> ConfirmAssetsAsync(int id) => PutAsync($"api/tenant/contracts/{id}/assets/confirm");
     public Task<ApiResult<ContractChangeRequestDto>> CreateChangeAsync(CreateContractChangeDto m)

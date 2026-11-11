@@ -100,6 +100,7 @@ public class LandlordApiClient : ApiClientBase
     }
     public Task<ApiResult<ContractDto>> ContractAsync(int id) => GetAsync<ContractDto>($"api/landlord/contracts/{id}");
     public Task<ApiResult> ExtendAsync(ExtendContractDto m) => PutAsync($"api/landlord/contracts/{m.Id}/extend", new { m.NewEndDate });
+    public Task<ApiResult> ConfirmDepositAsync(int contractId) => PutAsync($"api/landlord/contracts/{contractId}/confirm-deposit");
     public Task<ApiResult<List<ContractAssetDto>>> ContractAssetsAsync(int contractId, string? stage = null) => GetAsync<List<ContractAssetDto>>($"api/landlord/contracts/{contractId}/assets" + Q(stage, "stage"));
     public Task<ApiResult> CheckoutAsync(CheckoutAssetsDto m) => PutAsync($"api/landlord/contracts/{m.ContractId}/checkout-assets", new
     {
