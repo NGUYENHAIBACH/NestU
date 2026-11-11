@@ -107,7 +107,7 @@ Mục không đánh dấu thuộc tầng Bắt buộc.
 
 ### Landlord
 
-- CRUD nhà trọ: địa chỉ, khu vực, vị trí bản đồ, số tầng (`TotalFloors`), đối tượng thuê, giá điện (≤ 4.000), giá nước, tài khoản nhận tiền
+- CRUD nhà trọ: địa chỉ, khu vực, vị trí bản đồ, số tầng (`TotalFloors`), đối tượng thuê, giá điện (≤ 4.000), giá nước, tài khoản nhận tiền. Khu vực tự suy ra từ Quận / Huyện trong địa chỉ (so khớp chính xác tên đã chuẩn hóa); quận chưa có trong danh mục thì hệ thống tự thêm khi lưu. Chủ trọ vẫn có thể chọn lại khu vực.
 - Upload giấy chứng nhận PCCC để Admin duyệt
 - **Quản lý phòng theo tầng:** xem phòng nhóm theo tầng ("Tầng 2: 5 phòng, còn 2"); tạo một phòng hoặc tạo hàng loạt cho một tầng (ví dụ tầng 3, phòng 301–306, cùng diện tích, giá, sức chứa, tiện ích, tài sản)
 - CRUD phòng: số phòng, tầng, diện tích, giá, sức chứa, tiện ích, ảnh, trạng thái (Available, Maintenance); xem lượt xem từng phòng
@@ -125,7 +125,7 @@ Mục không đánh dấu thuộc tầng Bắt buộc.
 - Quản lý tài khoản: khóa, mở, gán role Tenant hoặc Landlord
 - Duyệt hồ sơ chủ trọ và giấy chứng nhận PCCC
 - Xử lý khiếu nại: ẩn tin, khóa tài khoản hoặc bác bỏ
-- Quản lý danh mục chung: khu vực, tiện ích, loại tài sản, trường đại học (kèm tọa độ)
+- Quản lý danh mục chung: khu vực, tiện ích, loại tài sản, trường đại học (kèm tọa độ). Khu vực chủ yếu do hệ thống tự sinh từ quận của nhà trọ; Admin xem số nhà trọ của từng khu vực và gộp hai khu vực trùng nghĩa (chuyển hết nhà trọ sang khu vực đích rồi xóa khu vực thừa)
 - Dashboard thống kê toàn hệ thống (Nên có)
 
 ### SuperAdmin (Mở rộng)
@@ -238,6 +238,7 @@ Mỗi ràng buộc ghi rõ được kiểm tra ở lớp nào; ràng buộc nào
 | Chỉ số điện nước tháng này ≥ tháng trước |  | Service, trả 400 |  |
 | Mỗi hợp đồng một hóa đơn mỗi tháng | Unique `(ContractId, Month, Year)` | Trả 409 |  |
 | Số điện thoại 10 số, CCCD 12 số | CHECK độ dài | `[RegularExpression]` | Cùng DataAnnotations trên model Web App |
+| Mỗi CCCD chỉ thuộc một tài khoản (xét cả hồ sơ Tenant và Landlord) | — (hai bảng khác nhau nên không dùng unique index) | Service kiểm tra khi đăng ký và sửa hồ sơ → 409 | Lỗi từ API hiện ở form |
 | MSSV, trường bắt buộc khi IsStudent | CHECK `IsStudent = 0 OR StudentCode IS NOT NULL` | `IValidatableObject` | Ẩn hiện ô theo checkbox |
 | Nhà trọ StudentOnly chỉ nhận sinh viên |  | Service, trả 400 | Nhãn "Chỉ sinh viên" |
 | Chỉ người từng thuê mới được đánh giá, mỗi hợp đồng một lần | Unique `(ContractId)` trên Review | Service, trả 403 |  |
@@ -391,7 +392,7 @@ Route nhóm theo role, mỗi nhóm gắn một `[Authorize(Roles = ...)]` (mục
 | GET | `/api/rooms/{id}` | Chi tiết phòng, tầng, ảnh, tiện ích, tài sản; tăng ViewCount (khóa `roomId + (userId hoặc visitorId từ header X-Visitor-Id)` 30 phút trong `IMemoryCache`) | → `RoomDetailDto` |
 | GET | `/api/houses/{id}` | Chi tiết nhà trọ Active, phòng nhóm theo tầng, badge đã duyệt PCCC | → `HouseDetailDto` |
 | GET | `/api/public/stats` | Số liệu trang Home | → `HomeStatsDto` |
-| GET | `/api/public/lookups` | Khu vực, tiện ích, trường (kèm tọa độ) | → `LookupsDto` |
+| GET | `/api/public/lookups` | Khu vực, khu vực đang có nhà trọ hoạt động (`SearchAreas`, cho bộ lọc Tìm phòng), tiện ích, trường (kèm tọa độ) | → `LookupsDto` |
 | GET | `/api/rooms/nearby?universityId=&radiusKm=` | (Nên có) Phòng trong bán kính, gần nhất trước, Haversine làm tròn 0,1 km | → `RoomListDto` có `distanceKm` |
 | GET | `/api/houses/map` | (Nên có) Marker bản đồ: tên, tọa độ, giá thấp nhất, số phòng còn | → `MapMarkerDto[]` |
 
