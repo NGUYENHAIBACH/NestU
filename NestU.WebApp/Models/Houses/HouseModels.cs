@@ -94,8 +94,14 @@ public class CertificateDto
 public class CreateCertificateDto
 {
     public int HouseId { get; set; }
-    [Required(ErrorMessage = "Số giấy chứng nhận là bắt buộc")] [StringLength(50)] [Display(Name = "Số giấy chứng nhận PCCC")] public string CertificateNo { get; set; } = string.Empty;
-    [Required(ErrorMessage = "Vui lòng chọn file")] [Display(Name = "File giấy chứng nhận (ảnh hoặc PDF)")] public IFormFile? File { get; set; }
+    public const long MaxFileBytes = 5 * 1024 * 1024;
+    public static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".pdf" };
+
+    [Required(ErrorMessage = "Số giấy chứng nhận là bắt buộc")]
+    [StringLength(50, MinimumLength = 3, ErrorMessage = "Số giấy chứng nhận từ 3 đến 50 ký tự")]
+    [RegularExpression(@"^(?=.*\d)[0-9A-Za-zÀ-ỹĐđ][0-9A-Za-zÀ-ỹĐđ/.\- ]*$", ErrorMessage = "Số giấy chứng nhận chỉ gồm chữ, số và các ký tự / - . (khoảng trắng), phải có ít nhất một chữ số")]
+    [Display(Name = "Số giấy chứng nhận PCCC")] public string CertificateNo { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Vui lòng chọn file")] [Display(Name = "File giấy chứng nhận (JPG, PNG hoặc PDF, tối đa 5 MB)")] public IFormFile? File { get; set; }
 }
 
 public class ReviewCertificateDto : NestU.WebApp.Models.Common.DecisionDto { }

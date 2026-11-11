@@ -110,6 +110,10 @@ public class HousesController : BaseController
     public async Task<IActionResult> UploadCertificate(CreateCertificateDto m)
     {
         if (m.File is null) ModelState.AddModelError(nameof(m.File), "Vui lòng chọn file");
+        else if (m.File.Length == 0) ModelState.AddModelError(nameof(m.File), "File rỗng, vui lòng chọn lại");
+        else if (m.File.Length > CreateCertificateDto.MaxFileBytes) ModelState.AddModelError(nameof(m.File), "File vượt quá 5 MB");
+        else if (!CreateCertificateDto.AllowedExtensions.Contains(Path.GetExtension(m.File.FileName).ToLowerInvariant()))
+            ModelState.AddModelError(nameof(m.File), "Chỉ nhận file JPG, PNG hoặc PDF");
         if (!ModelState.IsValid) return View(m);
         var r = await _api.UploadCertificateAsync(m);
         if (!r.Success) { r.AddToModelState(ModelState); return View(m); }

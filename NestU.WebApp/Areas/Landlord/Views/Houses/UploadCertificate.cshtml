@@ -6,8 +6,35 @@
         <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
         <input type="hidden" asp-for="HouseId" />
         <div class="mb-3"><label asp-for="CertificateNo" class="form-label"></label><input asp-for="CertificateNo" class="form-control" placeholder="PCCC-2026-0001" /><span asp-validation-for="CertificateNo" class="text-danger small"></span></div>
-        <div class="mb-3"><label asp-for="File" class="form-label"></label><input asp-for="File" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-control" /><span asp-validation-for="File" class="text-danger small"></span></div>
+        <div class="mb-3"><label asp-for="File" class="form-label"></label><input asp-for="File" type="file" accept=".jpg,.jpeg,.png,.pdf" class="form-control" /><span asp-validation-for="File" class="text-danger small"></span></div>
         <div class="alert alert-light border small">Sau khi quản trị viên duyệt, nhà trọ chuyển sang <strong>Đang hoạt động</strong>, phòng hiện công khai và nhận yêu cầu thuê.</div>
         <button class="btn btn-primary">Gửi duyệt</button><a asp-action="Details" asp-route-id="@Model.HouseId" class="btn btn-link">Quay lại</a>
     </form>
 </div>
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+    // Kiểm tra nhanh trên trình duyệt; máy chủ vẫn kiểm tra lại định dạng, dung lượng và nội dung file
+    (function () {
+        const input = document.getElementById('File');
+        const msg = document.querySelector('[data-valmsg-for="File"]');
+        const allowed = ['.jpg', '.jpeg', '.png', '.pdf'];
+        function check() {
+            const f = input.files[0];
+            let err = '';
+            if (f) {
+                const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+                if (!allowed.includes(ext)) err = 'Chỉ nhận file JPG, PNG hoặc PDF';
+                else if (f.size === 0) err = 'File rỗng, vui lòng chọn lại';
+                else if (f.size > 5 * 1024 * 1024) err = 'File vượt quá 5 MB';
+            }
+            input.setCustomValidity(err);
+            input.classList.toggle('is-invalid', !!err);
+            if (msg && err) msg.textContent = err;
+            return !err;
+        }
+        input.addEventListener('change', check);
+        input.form.addEventListener('submit', e => { if (!check()) { e.preventDefault(); input.reportValidity(); } });
+    })();
+</script>
+}
