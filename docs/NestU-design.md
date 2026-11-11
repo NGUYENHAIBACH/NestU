@@ -76,7 +76,7 @@ Hệ thống có 4 role công khai; SuperAdmin là role ẩn thuộc tầng Mở
 | Guest (chưa đăng nhập) | Xem, tìm kiếm, lọc phòng công khai, đăng ký tài khoản | Chỉ nhà trọ đang Active |
 | SuperAdmin (Mở rộng, ẩn) | Cấp, thu hồi role Admin, mở khóa Admin | Chỉ tài khoản Admin và AuditLog |
 
-**Sinh viên và khách thường.** Khi đăng ký, Tenant chọn `IsStudent`. Sinh viên khai thêm MSSV và trường; khách thường chỉ cần họ tên, số điện thoại, CCCD. Mọi luồng thuê, hợp đồng, hóa đơn dùng chung cho cả hai. Nhà trọ đặt `AllowedTenantType` là `All` hoặc `StudentOnly`; phòng của nhà trọ `StudentOnly` hiện nhãn "Chỉ sinh viên" và API từ chối yêu cầu thuê từ người không phải sinh viên.
+**Sinh viên và khách thường.** Khi đăng ký, Tenant chọn `IsStudent`. Sinh viên khai thêm MSSV và trường (chọn gợi ý hoặc nhập tay; tên trùng tên/tên viết tắt trường có sẵn thì dùng trường đó, chưa có thì tạo `University` mới với tọa độ 0 để Admin bổ sung ở Danh mục); khách thường chỉ cần họ tên, số điện thoại, CCCD. Mọi luồng thuê, hợp đồng, hóa đơn dùng chung cho cả hai. Nhà trọ đặt `AllowedTenantType` là `All` hoặc `StudentOnly`; phòng của nhà trọ `StudentOnly` hiện nhãn "Chỉ sinh viên" và API từ chối yêu cầu thuê từ người không phải sinh viên.
 
 **Landlord chờ duyệt.** Landlord đăng ký xong ở trạng thái `Pending` trong `LandlordProfile`: đăng nhập được, xem được trang hồ sơ, nhưng mọi endpoint `/api/landlord/*` trả 403 cho tới khi Admin duyệt `Approved`.
 
@@ -96,6 +96,7 @@ Mục không đánh dấu thuộc tầng Bắt buộc.
 ### Tenant
 
 - Quản lý hồ sơ: họ tên, CCCD, số điện thoại; MSSV và trường nếu là sinh viên
+- Đổi mật khẩu trong trang hồ sơ (Tenant và Landlord): nhập mật khẩu hiện tại và mã OTP 6 số gửi về email (`POST /api/auth/change-password/otp`, `POST /api/auth/change-password`), mã hiệu lực 5 phút, sai 5 lần thì hủy
 - Đặt lịch xem phòng, hủy khi còn Pending
 - Gửi yêu cầu thuê kèm số người ở và ngày dọn vào; theo dõi Pending, Approved, Rejected, Cancelled
 - Xem hợp đồng hiện tại, lịch sử thuê, số tiền cọc đã đóng
@@ -235,10 +236,12 @@ Mỗi ràng buộc ghi rõ được kiểm tra ở lớp nào; ràng buộc nào
 | Ngày kết thúc sau ngày bắt đầu, tối thiểu 1 tháng | CHECK `EndDate > StartDate` | Custom validation attribute |  |
 | Mỗi Tenant một hợp đồng Active | Filtered unique `(TenantId) WHERE Status = 'Active'` | Service |  |
 | Mỗi phòng một hợp đồng Active | Filtered unique `(RoomId) WHERE Status = 'Active'` | RowVersion, trả 409 |  |
-| Chỉ số điện nước tháng này ≥ tháng trước |  | Service, trả 400 |  |
+| Chỉ số điện nước tháng này ≥ tháng trước (tháng đầu so với chỉ số lúc nhận phòng) và ≤ kỳ sau nếu đã ghi |  | Service, trả 400; `GET /api/landlord/readings/bounds` trả chỉ số kỳ trước/kỳ sau | Form hiện chỉ số kỳ trước, chặn trước khi gửi; controller kiểm tra lại |
 | Mỗi hợp đồng một hóa đơn mỗi tháng | Unique `(ContractId, Month, Year)` | Trả 409 |  |
 | Số điện thoại 10 số, CCCD 12 số | CHECK độ dài | `[RegularExpression]` | Cùng DataAnnotations trên model Web App |
 | Mỗi CCCD chỉ thuộc một tài khoản (xét cả hồ sơ Tenant và Landlord) | — (hai bảng khác nhau nên không dùng unique index) | Service kiểm tra khi đăng ký và sửa hồ sơ → 409 | Lỗi từ API hiện ở form |
+| Mỗi số điện thoại chỉ thuộc một tài khoản (xét hồ sơ Tenant, Landlord và `AspNetUsers.PhoneNumber`) | — (không thêm unique index để CSDL không đổi) | Service (`Helpers/PhoneNumbers`) khi đăng ký và sửa hồ sơ → 409; SĐT người ở cùng không xét, chỉ cấm trùng nhau trong một hợp đồng | Lỗi từ API hiện ở form |
+| Giấy PCCC: số giấy 3–50 ký tự (chữ, số, `/ - .`, có ít nhất một chữ số), không trùng số giấy của nhà trọ khác (trừ giấy bị từ chối); file JPG/PNG/PDF ≤ 5 MB, đúng nội dung | — | `[RegularExpression]`; Service → 409 nếu trùng; `FileStorage` kiểm tra magic bytes | Cùng DataAnnotations, kiểm tra đuôi và dung lượng file bằng JS |
 | MSSV, trường bắt buộc khi IsStudent | CHECK `IsStudent = 0 OR StudentCode IS NOT NULL` | `IValidatableObject` | Ẩn hiện ô theo checkbox |
 | Nhà trọ StudentOnly chỉ nhận sinh viên |  | Service, trả 400 | Nhãn "Chỉ sinh viên" |
 | Chỉ người từng thuê mới được đánh giá, mỗi hợp đồng một lần | Unique `(ContractId)` trên Review | Service, trả 403 |  |
