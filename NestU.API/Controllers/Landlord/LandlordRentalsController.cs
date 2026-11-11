@@ -49,6 +49,10 @@ public class LandlordRentalsController : ControllerBase
     [HttpPut("contracts/{id:int}/extend")]
     public async Task<IActionResult> Extend(int id, ExtendContractDto dto) { await _rentals.ExtendContractAsync(Uid, id, dto); return NoContent(); }
 
+    /// <summary>Xác nhận đã nhận tiền cọc cho hợp đồng.</summary>
+    [HttpPut("contracts/{id:int}/confirm-deposit")]
+    public async Task<IActionResult> ConfirmDeposit(int id) { await _rentals.ConfirmDepositAsync(Uid, id); return NoContent(); }
+
     [HttpGet("contracts/{id:int}/assets")]
     public async Task<ActionResult<List<ContractAssetDto>>> ContractAssets(int id, [FromQuery] string? stage)
         => Ok(await _rentals.GetContractAssetsAsync(Uid, Roles.Landlord, id, stage));

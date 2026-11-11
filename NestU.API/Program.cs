@@ -80,6 +80,17 @@ builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
+// ---------- PayOS Client ----------
+var payOsConfig = builder.Configuration.GetSection("PayOS");
+if (!string.IsNullOrEmpty(payOsConfig["ClientId"]))
+{
+    builder.Services.AddSingleton(new PayOS.PayOSClient(
+        payOsConfig["ClientId"]!,
+        payOsConfig["ApiKey"]!,
+        payOsConfig["ChecksumKey"]!
+    ));
+}
+
 // ---------- Controllers + OData (mục 1.9) ----------
 static Microsoft.OData.Edm.IEdmModel GetEdmModel()
 {

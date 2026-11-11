@@ -14,7 +14,12 @@ namespace NestU.API.Services;
 public class RentalService : IRentalService
 {
     private readonly NestUDbContext _db;
-    public RentalService(NestUDbContext db) => _db = db;
+    private readonly PayOS.PayOSClient? _payOS;
+    public RentalService(NestUDbContext db, PayOS.PayOSClient? payOS = null)
+    {
+        _db = db;
+        _payOS = payOS;
+    }
 
     // =====================================================================
     // Hồ sơ Tenant
@@ -385,6 +390,61 @@ public class RentalService : IRentalService
         await _db.SaveChangesAsync();
     }
 
+    public async Task ConfirmDepositAsync(string landlordId, int contractId)
+    {
+        var c = await GetOwnedContractAsync(landlordId, Roles.Landlord, contractId, track: true);
+        if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng không còn hiệu lực.");
+        if (c.DepositPaidAt != null) throw ApiException.Conflict("Hợp đồng đã được ghi nhận nhận tiền cọc trước đó.");
+        c.DepositPaidAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<NestU.API.DTOs.Billing.QrDto> GetDepositQrAsync(string tenantId, int contractId)
+    {
+        var c = await GetOwnedContractAsync(tenantId, Roles.Tenant, contractId);
+        if (c.DepositPaidAt != null) throw ApiException.Conflict("Tiền cọc đã được ghi nhận thanh toán.");
+        if (c.DepositAmount <= 0) throw ApiException.BadRequest("Hợp đồng này không yêu cầu tiền cọc.");
+
+        var house = c.Room.BoardingHouse;
+        if (string.IsNullOrEmpty(house.BankCode) || string.IsNullOrEmpty(house.BankAccount))
+            throw ApiException.BadRequest("Chủ trọ chưa cấu hình tài khoản nhận tiền.");
+
+        // Định dạng nội dung: COC P{Số phòng} HD{Mã hợp đồng} (Ví dụ: COC P102 HD5)
+        var cleanRoom = System.Text.RegularExpressions.Regex.Replace(c.Room.RoomNumber ?? "", @"[^a-zA-Z0-9]", "");
+        if (string.IsNullOrEmpty(cleanRoom)) cleanRoom = "0";
+        var description = $"COC P{cleanRoom} HD{c.Id}";
+        if (description.Length > 25) description = description.Substring(0, 25);
+
+        if (_payOS != null)
+        {
+            try
+            {
+                var orderCode = long.Parse($"{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{c.Id % 1000:D3}");
+                var req = new PayOS.Models.V2.PaymentRequests.CreatePaymentLinkRequest
+                {
+                    OrderCode = orderCode,
+                    Amount = (long)c.DepositAmount,
+                    Description = description,
+                    CancelUrl = "https://localhost:7002/Tenant/Contracts",
+                    ReturnUrl = $"https://localhost:7002/Tenant/Contracts/Details/{c.Id}?tab=deposit"
+                };
+                var res = await _payOS.PaymentRequests.CreateAsync(req);
+                if (!string.IsNullOrEmpty(res.QrCode))
+                {
+                    var qrImg = $"https://api.qrserver.com/v1/create-qr-code/?size=280x280&data={Uri.EscapeDataString(res.QrCode)}";
+                    return new NestU.API.DTOs.Billing.QrDto { Content = description, ImageUrl = qrImg, CheckoutUrl = res.CheckoutUrl };
+                }
+            }
+            catch
+            {
+                // Fallback nếu PayOS lỗi
+            }
+        }
+
+        var url = $"https://img.vietqr.io/image/{house.BankCode}-{house.BankAccount}-compact2.png?amount={(long)c.DepositAmount}&addInfo={Uri.EscapeDataString(description)}&accountName={Uri.EscapeDataString(house.AccountName ?? "")}";
+        return new NestU.API.DTOs.Billing.QrDto { Content = description, ImageUrl = url };
+    }
+
     // =====================================================================
     // Bàn giao tài sản
     // =====================================================================
@@ -520,6 +580,10 @@ public class RentalService : IRentalService
         var c = await GetOwnedContractAsync(landlordId, Roles.Landlord, contractId, track: true);
         if (c.Status != ContractStatus.Active) throw ApiException.Conflict("Hợp đồng đã kết thúc.");
         if (await _db.DepositSettlements.AnyAsync(s => s.ContractId == contractId)) throw ApiException.Conflict("Hợp đồng đã quyết toán cọc.");
+
+        // 0. Kiểm tra tiền cọc đã được ghi nhận thu chưa
+        if (c.DepositPaidAt == null && c.DepositAmount > 0)
+            throw ApiException.BadRequest("Hợp đồng chưa được xác nhận đã thu tiền cọc. Vui lòng xác nhận đã thu cọc trước khi quyết toán.");
 
         // 1. Kiểm tra nghiệm thu tài sản nếu phòng có biên bản nhận phòng
         var hasCheckIn = await _db.ContractAssets.AnyAsync(a => a.ContractId == contractId && a.Stage == AssetStage.CheckIn);

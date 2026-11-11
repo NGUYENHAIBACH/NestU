@@ -23,7 +23,24 @@
         <dl class="row mb-0">
             <dt class="col-sm-3">Thời hạn</dt><dd class="col-sm-9">@Model.StartDate.ToString("dd/MM/yyyy") → @Model.EndDate.ToString("dd/MM/yyyy") @(Model.DisplayStatus == "Expired" ? "(đã hết hạn)" : "")</dd>
             <dt class="col-sm-3">Tiền phòng</dt><dd class="col-sm-9">@Model.MonthlyRent.ToString("N0")đ/tháng</dd>
-            <dt class="col-sm-3">Tiền cọc</dt><dd class="col-sm-9">@Model.DepositAmount.ToString("N0")đ @(Model.DepositPaidAt is null ? "(chưa ghi nhận)" : $"— đã nhận {Model.DepositPaidAt:dd/MM/yyyy}")</dd>
+            <dt class="col-sm-3">Tiền cọc</dt><dd class="col-sm-9">
+                @Model.DepositAmount.ToString("N0")đ
+                @if (Model.DepositPaidAt is null)
+                {
+                    <span class="badge text-bg-warning ms-1">Chưa ghi nhận</span>
+                    @if (Model.Status == "Active" && Model.DepositAmount > 0)
+                    {
+                        <form asp-action="ConfirmDeposit" asp-route-id="@Model.Id" method="post" class="d-inline ms-2">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-outline-success btn-sm py-0" onclick="return confirm('Xác nhận bạn đã nhận đủ @Model.DepositAmount.ToString("N0")đ tiền cọc từ người thuê?')">Xác nhận nhận cọc</button>
+                        </form>
+                    }
+                }
+                else
+                {
+                    <span class="text-success ms-1">— đã nhận @Model.DepositPaidAt.Value.ToString("dd/MM/yyyy")</span>
+                }
+            </dd>
             <dt class="col-sm-3">Người ở cùng</dt><dd class="col-sm-9">@(Model.Members.Count == 0 ? "Không" : string.Join("; ", Model.Members.Select(m => $"{m.FullName} ({m.CitizenId})")))</dd>
             <dt class="col-sm-3">Dịch vụ</dt><dd class="col-sm-9">@(Model.Services.Count == 0 ? "Không" : string.Join(", ", Model.Services.Select(s => $"{s.Name} {s.Price:N0}đ")))</dd>
         </dl>
@@ -63,6 +80,37 @@ else if (tab == "invoices")
 else
 {
     <div class="card p-4">
+        <h2 class="h6 mb-3">Tình trạng tiền cọc</h2>
+        <div class="d-flex align-items-center gap-3 mb-4 p-3 border rounded bg-light flex-wrap">
+            <div>
+                <div class="small text-secondary">Số tiền cọc thỏa thuận</div>
+                <div class="fs-5 fw-bold">@Model.DepositAmount.ToString("N0")đ</div>
+            </div>
+            <div class="vr d-none d-md-block"></div>
+            <div>
+                <div class="small text-secondary">Trạng thái</div>
+                @if (Model.DepositPaidAt is not null)
+                {
+                    <span class="badge text-bg-success">Đã nhận ngày @Model.DepositPaidAt.Value.ToString("dd/MM/yyyy")</span>
+                }
+                else
+                {
+                    <span class="badge text-bg-warning">Chưa ghi nhận đã nhận cọc</span>
+                }
+            </div>
+            @if (Model.Status == "Active" && Model.DepositPaidAt is null && Model.DepositAmount > 0)
+            {
+                <div class="ms-md-auto">
+                    <form asp-action="ConfirmDeposit" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Xác nhận bạn đã nhận đủ @Model.DepositAmount.ToString("N0")đ tiền cọc từ người thuê?')">
+                            <i class="bi bi-check-circle"></i> Xác nhận đã nhận tiền cọc
+                        </button>
+                    </form>
+                </div>
+            }
+        </div>
+
         @if (Model.DepositSettlement is not null)
         {
             var s = Model.DepositSettlement;
@@ -83,7 +131,17 @@ else
                 <li>Lập hóa đơn tháng cuối nếu còn.</li>
                 <li>Quyết toán cọc: hệ thống tự tính khấu trừ hư hỏng + hóa đơn chưa trả, phần còn lại hoàn cho người thuê. Hợp đồng → Đã kết thúc, phòng → Còn trống.</li>
             </ol>
-            <a asp-action="Settle" asp-route-id="@Model.Id" class="btn btn-danger">Quyết toán cọc &amp; kết thúc hợp đồng</a>
+            @if (Model.DepositPaidAt is null && Model.DepositAmount > 0)
+            {
+                <div class="alert alert-warning small mb-3">
+                    <strong>Lưu ý:</strong> Hợp đồng chưa được xác nhận đã thu tiền cọc. Bạn cần xác nhận đã thu cọc (ở nút phía trên) trước khi thực hiện quyết toán.
+                </div>
+                <button class="btn btn-secondary" disabled title="Cần xác nhận đã thu cọc trước">Quyết toán cọc &amp; kết thúc hợp đồng</button>
+            }
+            else
+            {
+                <a asp-action="Settle" asp-route-id="@Model.Id" class="btn btn-danger">Quyết toán cọc &amp; kết thúc hợp đồng</a>
+            }
         }
         else { <div class="text-secondary">Hợp đồng đã kết thúc @Model.TerminatedAt?.ToLocalTime().ToString("dd/MM/yyyy").</div> }
     </div>

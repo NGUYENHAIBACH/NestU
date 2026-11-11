@@ -30,6 +30,14 @@ public class InvoicesController : BaseController
     }
 
     [HttpGet]
+    public async Task<IActionResult> CheckStatus(int id)
+    {
+        var r = await _api.InvoiceAsync(id);
+        if (!r.Success) return Json(new { success = false });
+        return Json(new { success = true, isPaid = r.Data!.Status == "Paid" });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Pay(int id)
     {
         var r = await _api.InvoiceAsync(id);

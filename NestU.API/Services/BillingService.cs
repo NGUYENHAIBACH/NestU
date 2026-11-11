@@ -13,12 +13,14 @@ public class BillingService : IBillingService
     private readonly NestUDbContext _db;
     private readonly IRentalService _rentals;
     private readonly IFileStorage _files;
+    private readonly PayOS.PayOSClient? _payOS;
 
-    public BillingService(NestUDbContext db, IRentalService rentals, IFileStorage files)
+    public BillingService(NestUDbContext db, IRentalService rentals, IFileStorage files, PayOS.PayOSClient? payOS = null)
     {
         _db = db;
         _rentals = rentals;
         _files = files;
+        _payOS = payOS;
     }
 
     // =====================================================================
@@ -270,13 +272,45 @@ public class BillingService : IBillingService
         await _db.SaveChangesAsync();
     }
 
-    /// <summary>VietQR (Nên có): dùng dịch vụ ảnh img.vietqr.io, không cần cổng thanh toán.</summary>
+    /// <summary>VietQR: Tự động sinh mã PayOS nếu có, fallback sang img.vietqr.io.</summary>
     public async Task<QrDto> GetQrAsync(string tenantId, int invoiceId)
     {
         var inv = await GetInvoiceAsync(tenantId, Roles.Tenant, invoiceId);
         if (string.IsNullOrEmpty(inv.BankCode) || string.IsNullOrEmpty(inv.BankAccount)) throw ApiException.BadRequest("Chủ trọ chưa cấu hình tài khoản nhận tiền.");
-        var content = $"NESTU-{inv.Id}";
-        var url = $"https://img.vietqr.io/image/{inv.BankCode}-{inv.BankAccount}-compact2.png?amount={(long)inv.RemainingAmount}&addInfo={Uri.EscapeDataString(content)}&accountName={Uri.EscapeDataString(inv.AccountName ?? "")}";
-        return new QrDto { Content = content, ImageUrl = url };
+
+        // Định dạng nội dung: P{Số phòng} T{Tháng} HD{Mã hóa đơn} (Ví dụ: P102 T11 HD12)
+        var cleanRoom = System.Text.RegularExpressions.Regex.Replace(inv.RoomNumber ?? "", @"[^a-zA-Z0-9]", "");
+        if (string.IsNullOrEmpty(cleanRoom)) cleanRoom = "0";
+        var description = $"P{cleanRoom} T{inv.Month} HD{inv.Id}";
+        if (description.Length > 25) description = description.Substring(0, 25);
+
+        if (_payOS != null && inv.RemainingAmount > 0)
+        {
+            try
+            {
+                var orderCode = long.Parse($"{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{inv.Id % 1000:D3}");
+                var req = new PayOS.Models.V2.PaymentRequests.CreatePaymentLinkRequest
+                {
+                    OrderCode = orderCode,
+                    Amount = (long)inv.RemainingAmount,
+                    Description = description,
+                    CancelUrl = "https://localhost:7002/Tenant/Invoices",
+                    ReturnUrl = $"https://localhost:7002/Tenant/Invoices/Details/{inv.Id}"
+                };
+                var res = await _payOS.PaymentRequests.CreateAsync(req);
+                if (!string.IsNullOrEmpty(res.QrCode))
+                {
+                    var qrImg = $"https://api.qrserver.com/v1/create-qr-code/?size=280x280&data={Uri.EscapeDataString(res.QrCode)}";
+                    return new QrDto { Content = description, ImageUrl = qrImg, CheckoutUrl = res.CheckoutUrl };
+                }
+            }
+            catch
+            {
+                // Fallback nếu gọi PayOS có lỗi hoặc chưa kết nối
+            }
+        }
+
+        var url = $"https://img.vietqr.io/image/{inv.BankCode}-{inv.BankAccount}-compact2.png?amount={(long)inv.RemainingAmount}&addInfo={Uri.EscapeDataString(description)}&accountName={Uri.EscapeDataString(inv.AccountName ?? "")}";
+        return new QrDto { Content = description, ImageUrl = url };
     }
 }

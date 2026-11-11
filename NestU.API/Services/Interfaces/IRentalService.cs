@@ -30,6 +30,8 @@ public interface IRentalService
     Task<ContractDto> GetContractAsync(string userId, string role, int id);
     Task<List<ContractDto>> GetLandlordContractsAsync(string landlordId, string? status, int? houseId);
     Task ExtendContractAsync(string landlordId, int id, ExtendContractDto dto);
+    Task ConfirmDepositAsync(string landlordId, int contractId);
+    Task<NestU.API.DTOs.Billing.QrDto> GetDepositQrAsync(string tenantId, int contractId);
 
     // Bàn giao tài sản
     Task<List<ContractAssetDto>> GetContractAssetsAsync(string userId, string role, int contractId, string? stage);
