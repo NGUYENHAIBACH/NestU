@@ -44,6 +44,7 @@ public class RentalService : IRentalService
             if (dto.UniversityId is null || !await _db.Universities.AnyAsync(u => u.Id == dto.UniversityId)) throw ApiException.BadRequest("Vui lòng chọn trường hợp lệ.");
         }
         await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, tenantId);
+        await PhoneNumbers.EnsureNotUsedByOtherAsync(_db, dto.Phone, tenantId);
         p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId.Trim(); p.Phone = dto.Phone;
         p.IsStudent = dto.IsStudent; p.StudentCode = dto.IsStudent ? dto.StudentCode : null; p.UniversityId = dto.IsStudent ? dto.UniversityId : null;
         p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
@@ -248,6 +249,9 @@ public class RentalService : IRentalService
         var memberCitizenIds = dto.Members.Select(m => m.CitizenId.Trim()).ToList();
         if (memberCitizenIds.Distinct().Count() != memberCitizenIds.Count)
             throw new BusinessRuleException("Danh sách thành viên ở cùng có số CCCD bị trùng lặp.");
+        var memberPhones = dto.Members.Where(m => !string.IsNullOrWhiteSpace(m.Phone)).Select(m => m.Phone!.Trim()).ToList();
+        if (memberPhones.Distinct().Count() != memberPhones.Count)
+            throw new BusinessRuleException("Danh sách thành viên ở cùng có số điện thoại bị trùng lặp.");
         if (tenantCitizenId is not null && memberCitizenIds.Contains(tenantCitizenId))
             throw new BusinessRuleException("CCCD của thành viên ở cùng không được trùng với người đại diện đứng tên hợp đồng.");
 

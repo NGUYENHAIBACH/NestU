@@ -46,6 +46,7 @@ public class AuthService : IAuthService
         }
 
         await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, userId: null);
+        await PhoneNumbers.EnsureNotUsedByOtherAsync(_db, dto.Phone, userId: null);
 
         await using var tx = await _db.Database.BeginTransactionAsync();
 
