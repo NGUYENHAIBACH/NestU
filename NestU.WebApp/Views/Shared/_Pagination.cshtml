@@ -5,10 +5,46 @@
 @if (pages > 1)
 {
     <nav aria-label="Phân trang">
-        <ul class="pagination justify-content-center">
+        <ul class="pagination justify-content-center mb-0">
+            @if (Model.page > 1)
+            {
+                <li class="page-item"><a class="page-link" href="@(Model.url + (Model.page - 1))" aria-label="Trước">&laquo;</a></li>
+            }
+            else
+            {
+                <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+            }
+
+            @if (Model.page - 2 > 1)
+            {
+                <li class="page-item"><a class="page-link" href="@(Model.url + 1)">1</a></li>
+                @if (Model.page - 2 > 2)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+            }
+
             @for (var p = Math.Max(1, Model.page - 2); p <= Math.Min(pages, Model.page + 2); p++)
             {
                 <li class="page-item @(p == Model.page ? "active" : "")"><a class="page-link" href="@(Model.url + p)">@p</a></li>
+            }
+
+            @if (Model.page + 2 < pages)
+            {
+                @if (Model.page + 2 < pages - 1)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+                <li class="page-item"><a class="page-link" href="@(Model.url + pages)">@pages</a></li>
+            }
+
+            @if (Model.page < pages)
+            {
+                <li class="page-item"><a class="page-link" href="@(Model.url + (Model.page + 1))" aria-label="Sau">&raquo;</a></li>
+            }
+            else
+            {
+                <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
             }
         </ul>
     </nav>

@@ -28,4 +28,8 @@
         </tr>
     }
     </tbody></table></div>
-<div class="mt-3"><partial name="_Pagination" model="@((Model.Page, Model.PageSize, Model.Total, Url.Action("Index", new { role, status, search }) + "&page="))" /></div>
+@{
+    var actionUrl = Url.Action("Index", new { role, status, search });
+    var userPageUrl = (actionUrl?.Contains('?') == true ? actionUrl + "&page=" : actionUrl + "?page=");
+}
+<div class="mt-3"><partial name="_Pagination" model="@((Model.Page, Model.PageSize, Model.Total, userPageUrl))" /></div>

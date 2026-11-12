@@ -16,14 +16,31 @@ public class RoomsController : BaseController
     private readonly PublicApiClient _public;
     public RoomsController(LandlordApiClient api, PublicApiClient @public) { _api = api; _public = @public; }
 
-    public async Task<IActionResult> Index(int? houseId, int? floor)
+    public async Task<IActionResult> Index(int? houseId, int? floor, int page = 1)
     {
         var houses = await _api.HousesAsync();
         if (!houses.Success) return HandleFailure(houses, "Index");
         ViewBag.Houses = new SelectList(houses.Data ?? new(), "Id", "Name", houseId);
         var rooms = await _api.RoomsAsync(houseId, floor);
-        ViewBag.HouseId = houseId; ViewBag.Floor = floor;
-        return View(rooms.Data ?? new());
+        if (!rooms.Success) return HandleFailure(rooms, "Index");
+
+        ViewBag.HouseId = houseId;
+        ViewBag.Floor = floor;
+
+        const int pageSize = 10;
+        var allRooms = rooms.Data ?? new();
+        var total = allRooms.Count;
+        var totalPages = (int)Math.Ceiling(total / (double)pageSize);
+        if (page < 1) page = 1;
+        if (page > totalPages && totalPages > 0) page = totalPages;
+
+        var pagedRooms = allRooms.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        ViewBag.Page = page;
+        ViewBag.PageSize = pageSize;
+        ViewBag.Total = total;
+
+        return View(pagedRooms);
     }
 
     public async Task<IActionResult> Details(int id)
