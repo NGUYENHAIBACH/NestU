@@ -12,13 +12,14 @@
             <div class="carousel-inner">
                 @{
                     var apiBase = Config["ApiSettings:BaseUrl"]?.TrimEnd('/') ?? "";
+                    var defaultPlaceholder = Url.Content("~/images/room-placeholder.svg");
                     var imgs = Model.ImageUrls.Count > 0
                         ? Model.ImageUrls.Select(u => u.StartsWith("/") ? apiBase + u : u).ToList()
-                        : new List<string> { "https://picsum.photos/seed/nestu/1200/800" };
+                        : new List<string> { defaultPlaceholder };
                 }
                 @for (var i = 0; i < imgs.Count; i++)
                 {
-                    <div class="carousel-item @(i == 0 ? "active" : "")"><div class="ratio ratio-16x9"><img src="@imgs[i]" class="object-fit-cover" alt="Ảnh phòng" onerror="this.onerror=null;this.src='https://picsum.photos/seed/nestu/1200/800'" /></div></div>
+                    <div class="carousel-item @(i == 0 ? "active" : "")"><div class="ratio ratio-16x9"><img src="@imgs[i]" class="object-fit-cover" alt="Ảnh phòng" onerror="this.onerror=null;this.src='@defaultPlaceholder'" /></div></div>
                 }
             </div>
             @if (imgs.Count > 1)

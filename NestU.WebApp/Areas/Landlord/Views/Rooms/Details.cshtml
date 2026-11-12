@@ -71,11 +71,12 @@
             @if (Model.ImageUrls.Count > 0)
             {
                 var apiBase = Config["ApiSettings:BaseUrl"]?.TrimEnd('/') ?? "";
+                var defaultPlaceholder = Url.Content("~/images/room-placeholder.svg");
                 <hr /><div class="d-flex flex-wrap gap-2">
                     @foreach (var u in Model.ImageUrls)
                     {
                         var resolved = u.StartsWith("/") ? apiBase + u : u;
-                        <img src="@resolved" style="width:96px;height:72px;object-fit:cover" class="rounded" alt="" onerror="this.onerror=null;this.src='https://picsum.photos/seed/nestu/800/600'" />
+                        <img src="@resolved" style="width:96px;height:72px;object-fit:cover" class="rounded" alt="" onerror="this.onerror=null;this.src='@defaultPlaceholder'" />
                     }
                 </div>
             }

@@ -138,6 +138,21 @@ public static class DbSeeder
 
         // 3 tầng × 4 phòng
         var rnd = new Random(42);
+        var anBinhImages = new[]
+        {
+            "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1502005229762-ee1b2b8ab32f?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&w=1000&q=80",
+            "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=1000&q=80"
+        };
         for (var floor = 1; floor <= 3; floor++)
         {
             for (var n = 1; n <= 4; n++)
@@ -156,7 +171,8 @@ public static class DbSeeder
                     Description = $"Phòng {floor * 100 + n}, tầng {floor}, thoáng mát.",
                     ViewCount = rnd.Next(5, 80)
                 };
-                room.Images.Add(new RoomImage { Url = $"https://picsum.photos/seed/nestu{floor}{n}/800/600", SortOrder = 0 });
+                var imgIndex = ((floor - 1) * 4 + (n - 1)) % anBinhImages.Length;
+                room.Images.Add(new RoomImage { Url = anBinhImages[imgIndex], SortOrder = 0 });
                 room.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[0].Id });
                 room.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[2].Id });
                 if (n % 2 == 1) room.RoomAmenities.Add(new RoomAmenity { AmenityId = amenities[1].Id });
