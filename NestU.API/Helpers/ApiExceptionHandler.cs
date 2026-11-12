@@ -51,6 +51,7 @@ public class ApiExceptionHandler : IExceptionHandler
         if (msg.Contains("IX_AssetTypes_Name")) return "Tên loại tài sản đã tồn tại.";
         if (msg.Contains("CK_TenantProfile_Phone") || msg.Contains("CK_LandlordProfile_Phone")) return "Số điện thoại phải gồm đúng 10 chữ số.";
         if (msg.Contains("CK_TenantProfile_CitizenId") || msg.Contains("CK_LandlordProfile_CitizenId")) return "Số CCCD phải gồm đúng 12 chữ số.";
+        if (msg.Contains("IX_TenantProfiles_StudentCode")) return "Mã sinh viên này đã được sử dụng cho một tài khoản khác.";
         if (msg.Contains("CK_TenantProfile_Student")) return "Sinh viên phải nhập mã số sinh viên và chọn trường.";
         if (msg.Contains("CK_")) return "Dữ liệu vi phạm ràng buộc của hệ thống.";
         if (msg.Contains("REFERENCE constraint")) return "Không thể xóa vì dữ liệu đang được sử dụng ở nơi khác.";

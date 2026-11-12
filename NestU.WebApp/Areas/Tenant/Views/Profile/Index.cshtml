@@ -13,7 +13,7 @@
         </div>
         <div class="form-check mb-3"><input asp-for="IsStudent" class="form-check-input" /><label asp-for="IsStudent" class="form-check-label"></label></div>
         <div class="row" id="studentFields">
-            <div class="col-md-6 mb-3"><label asp-for="StudentCode" class="form-label"></label><input asp-for="StudentCode" class="form-control" /><span asp-validation-for="StudentCode" class="text-danger small"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="StudentCode" class="form-label"></label><input asp-for="StudentCode" class="form-control" placeholder="VD: SE123456" /><span asp-validation-for="StudentCode" class="text-danger small"></span></div>
             <div class="col-md-6 mb-3">
                 <label asp-for="UniversityName" class="form-label"></label>
                 <input asp-for="UniversityName" class="form-control" list="universityList" autocomplete="off" placeholder="Chọn trong danh sách hoặc nhập tên trường" />

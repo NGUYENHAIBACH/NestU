@@ -3,7 +3,7 @@ using NestU.API.DTOs.Assets;
 
 namespace NestU.API.DTOs.Rentals;
 
-public class TenantProfileDto
+public class TenantProfileDto : IValidatableObject
 {
     public string UserId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -15,6 +15,20 @@ public class TenantProfileDto
     public int? UniversityId { get; set; }
     /// <summary>Tên trường; nhập tay khi chưa có trong danh sách (dùng khi UniversityId để trống).</summary>
     [StringLength(200, ErrorMessage = "Tên trường tối đa 200 ký tự")] public string? UniversityName { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (IsStudent)
+        {
+            if (string.IsNullOrWhiteSpace(StudentCode))
+                yield return new ValidationResult("Sinh viên phải nhập mã số sinh viên", new[] { nameof(StudentCode) });
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(StudentCode.Trim(), @"^[A-Z]{2}[0-9]{6}$"))
+                yield return new ValidationResult("Mã sinh viên phải gồm 2 ký tự in hoa không dấu và 6 chữ số (VD: SE123456)", new[] { nameof(StudentCode) });
+
+            if (UniversityId is null && string.IsNullOrWhiteSpace(UniversityName))
+                yield return new ValidationResult("Sinh viên phải chọn hoặc nhập tên trường", new[] { nameof(UniversityName) });
+        }
+    }
 }
 
 public class CreateAppointmentDto : IValidatableObject

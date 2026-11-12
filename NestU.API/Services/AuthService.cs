@@ -42,6 +42,12 @@ public class AuthService : IAuthService
         {
             if (string.IsNullOrWhiteSpace(dto.StudentCode))
                 throw ApiException.BadRequest("Sinh viên phải nhập mã số sinh viên.");
+
+            var studentCode = dto.StudentCode.Trim();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(studentCode, StudentCodes.Pattern))
+                throw ApiException.BadRequest(StudentCodes.FormatErrorMessage);
+
+            await StudentCodes.EnsureNotUsedByOtherAsync(_db, studentCode, userId: null);
             university = await Universities.ResolveAsync(_db, dto.UniversityId, dto.UniversityName);
         }
 

@@ -61,6 +61,9 @@ public class RegisterModel : IValidatableObject
         {
             if (string.IsNullOrWhiteSpace(StudentCode))
                 yield return new ValidationResult("Sinh viên phải nhập mã số sinh viên", new[] { nameof(StudentCode) });
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(StudentCode.Trim(), @"^[A-Z]{2}[0-9]{6}$"))
+                yield return new ValidationResult("Mã sinh viên phải gồm 2 ký tự in hoa không dấu và 6 chữ số (VD: SE123456)", new[] { nameof(StudentCode) });
+
             if (UniversityId is null && string.IsNullOrWhiteSpace(UniversityName))
                 yield return new ValidationResult("Sinh viên phải chọn hoặc nhập tên trường", new[] { nameof(UniversityName) });
         }

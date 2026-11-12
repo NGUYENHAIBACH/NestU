@@ -20,6 +20,7 @@ public class TenantProfileConfiguration : IEntityTypeConfiguration<TenantProfile
         b.Property(x => x.CitizenId).HasMaxLength(12).IsRequired();
         b.Property(x => x.Phone).HasMaxLength(10).IsRequired();
         b.Property(x => x.StudentCode).HasMaxLength(20);
+        b.HasIndex(x => x.StudentCode).IsUnique().HasFilter("[StudentCode] IS NOT NULL");
         b.HasOne(x => x.User).WithOne(u => u.TenantProfile).HasForeignKey<TenantProfile>(x => x.UserId)
             .OnDelete(DeleteBehavior.Cascade);
         b.HasOne(x => x.University).WithMany().HasForeignKey(x => x.UniversityId).OnDelete(DeleteBehavior.Restrict);

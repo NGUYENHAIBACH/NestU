@@ -75,6 +75,8 @@ public class AccountController : Controller
         var result = await _auth.RegisterAsync(model);
         if (!result.Success)
         {
+            if (result.Message?.Contains("mã sinh viên", StringComparison.OrdinalIgnoreCase) == true)
+                ModelState.AddModelError(nameof(model.StudentCode), result.Message);
             result.AddToModelState(ModelState);
             await LoadUniversities();
             return View(model);

@@ -28,12 +28,32 @@ public class ProfileController : BaseController
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(TenantProfileDto m)
     {
-        if (m.IsStudent && string.IsNullOrWhiteSpace(m.StudentCode)) ModelState.AddModelError(nameof(m.StudentCode), "Sinh viên phải nhập mã số sinh viên");
-        if (m.IsStudent && string.IsNullOrWhiteSpace(m.UniversityName)) ModelState.AddModelError(nameof(m.UniversityName), "Sinh viên phải chọn hoặc nhập tên trường");
+        if (m.IsStudent)
+        {
+            if (string.IsNullOrWhiteSpace(m.StudentCode))
+                ModelState.AddModelError(nameof(m.StudentCode), "Sinh viên phải nhập mã số sinh viên");
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(m.StudentCode.Trim(), @"^[A-Z]{2}[0-9]{6}$"))
+                ModelState.AddModelError(nameof(m.StudentCode), "Mã sinh viên phải gồm 2 ký tự in hoa không dấu và 6 chữ số (VD: SE123456)");
+
+            if (string.IsNullOrWhiteSpace(m.UniversityName))
+                ModelState.AddModelError(nameof(m.UniversityName), "Sinh viên phải chọn hoặc nhập tên trường");
+        }
+        else
+        {
+            m.StudentCode = null;
+            m.UniversityName = null;
+        }
         m.UniversityId = null; // gửi theo tên: API khớp trường có sẵn hoặc tạo trường mới
         if (!ModelState.IsValid) { await LoadUniversities(m.UniversityId); return View(m); }
         var r = await _api.UpdateProfileAsync(m);
-        if (!r.Success) { r.AddToModelState(ModelState); await LoadUniversities(m.UniversityId); return View(m); }
+        if (!r.Success)
+        {
+            if (r.Message?.Contains("mã sinh viên", StringComparison.OrdinalIgnoreCase) == true)
+                ModelState.AddModelError(nameof(m.StudentCode), r.Message);
+            r.AddToModelState(ModelState);
+            await LoadUniversities(m.UniversityId);
+            return View(m);
+        }
         TempData["Success"] = "Đã cập nhật hồ sơ.";
         return RedirectToAction(nameof(Index));
     }

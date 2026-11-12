@@ -41,12 +41,17 @@ public class RentalService : IRentalService
         if (dto.IsStudent)
         {
             if (string.IsNullOrWhiteSpace(dto.StudentCode)) throw ApiException.BadRequest("Sinh viên phải nhập mã số sinh viên.");
+            var studentCode = dto.StudentCode.Trim();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(studentCode, StudentCodes.Pattern))
+                throw ApiException.BadRequest(StudentCodes.FormatErrorMessage);
+
+            await StudentCodes.EnsureNotUsedByOtherAsync(_db, studentCode, tenantId);
         }
         var university = dto.IsStudent ? await Universities.ResolveAsync(_db, dto.UniversityId, dto.UniversityName) : null;
         await CitizenIds.EnsureNotUsedByOtherAsync(_db, dto.CitizenId, tenantId);
         await PhoneNumbers.EnsureNotUsedByOtherAsync(_db, dto.Phone, tenantId);
         p.FullName = dto.FullName.Trim(); p.CitizenId = dto.CitizenId.Trim(); p.Phone = dto.Phone;
-        p.IsStudent = dto.IsStudent; p.StudentCode = dto.IsStudent ? dto.StudentCode : null; p.University = university; if (university is null) p.UniversityId = null;
+        p.IsStudent = dto.IsStudent; p.StudentCode = dto.IsStudent ? dto.StudentCode?.Trim() : null; p.University = university; if (university is null) p.UniversityId = null;
         p.User.FullName = p.FullName; p.User.PhoneNumber = dto.Phone;
         await _db.SaveChangesAsync();
     }

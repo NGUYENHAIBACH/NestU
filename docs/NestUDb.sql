@@ -109,6 +109,7 @@ CREATE TABLE TenantProfiles (
     CONSTRAINT CK_TenantProfile_CitizenId CHECK (LEN([CitizenId]) = 12),
     CONSTRAINT CK_TenantProfile_Student   CHECK ([IsStudent] = 0 OR ([StudentCode] IS NOT NULL AND [UniversityId] IS NOT NULL))
 );
+CREATE UNIQUE NONCLUSTERED INDEX IX_TenantProfiles_StudentCode ON TenantProfiles(StudentCode) WHERE StudentCode IS NOT NULL;
 
 CREATE TABLE LandlordProfiles (
     Id             int IDENTITY PRIMARY KEY,
